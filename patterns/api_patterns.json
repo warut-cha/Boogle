@@ -1,0 +1,168 @@
+{
+  "deprecated_patterns": [
+    {
+      "id": "api_v1",
+      "pattern": "/api/v1/",
+      "severity": "medium",
+      "description": "API version 1 endpoint detected - likely deprecated",
+      "remediation": "Migrate to latest API version and deprecate v1 endpoints"
+    },
+    {
+      "id": "api_v2",
+      "pattern": "/api/v2/",
+      "severity": "low",
+      "description": "API version 2 endpoint detected - check deprecation status",
+      "remediation": "Review API versioning policy and migrate if deprecated"
+    },
+    {
+      "id": "deprecated_decorator",
+      "pattern": "@deprecated|@Deprecated",
+      "severity": "medium",
+      "description": "Deprecated decorator found on API endpoint",
+      "remediation": "Remove deprecated endpoint or provide migration path"
+    },
+    {
+      "id": "deprecated_comment",
+      "pattern": "(?i)#\\s*deprecated|//\\s*deprecated|/\\*\\s*deprecated",
+      "severity": "medium",
+      "description": "Deprecated comment marker found",
+      "remediation": "Remove deprecated code or update documentation"
+    }
+  ],
+  "authentication_patterns": [
+    {
+      "id": "no_auth_required",
+      "pattern": "@app\\.route\\([^)]+\\)\\s*(?!@.*auth|@.*login_required)",
+      "severity": "high",
+      "description": "API endpoint without authentication decorator",
+      "remediation": "Add authentication requirement to sensitive endpoints"
+    },
+    {
+      "id": "basic_auth",
+      "pattern": "(?i)basic\\s+auth|basicauth",
+      "severity": "medium",
+      "description": "Basic authentication detected - consider stronger auth",
+      "remediation": "Migrate to OAuth2, JWT, or API key authentication"
+    },
+    {
+      "id": "weak_auth",
+      "pattern": "(?i)auth\\s*=\\s*['\"]?none['\"]?|authenticate\\s*=\\s*false",
+      "severity": "high",
+      "description": "Authentication disabled or set to none",
+      "remediation": "Enable proper authentication for all endpoints"
+    }
+  ],
+  "sensitive_endpoints": [
+    {
+      "id": "admin_endpoint",
+      "pattern": "/admin/|/administrator/",
+      "severity": "high",
+      "description": "Admin endpoint detected",
+      "requires_auth": true,
+      "requires_role": "admin"
+    },
+    {
+      "id": "user_data_endpoint",
+      "pattern": "/users?/|/customers?/|/accounts?/",
+      "severity": "high",
+      "description": "User data endpoint detected",
+      "requires_auth": true,
+      "requires_role": "authenticated"
+    },
+    {
+      "id": "payment_endpoint",
+      "pattern": "/payment/|/billing/|/checkout/",
+      "severity": "critical",
+      "description": "Payment endpoint detected",
+      "requires_auth": true,
+      "requires_encryption": true
+    },
+    {
+      "id": "database_endpoint",
+      "pattern": "/db/|/database/|/query/",
+      "severity": "critical",
+      "description": "Direct database access endpoint detected",
+      "requires_auth": true,
+      "requires_role": "admin"
+    },
+    {
+      "id": "file_upload_endpoint",
+      "pattern": "/upload/|/file/",
+      "severity": "high",
+      "description": "File upload endpoint detected",
+      "requires_auth": true,
+      "requires_validation": true
+    },
+    {
+      "id": "export_endpoint",
+      "pattern": "/export/|/download/|/backup/",
+      "severity": "high",
+      "description": "Data export endpoint detected",
+      "requires_auth": true,
+      "requires_audit": true
+    }
+  ],
+  "rate_limiting": [
+    {
+      "id": "no_rate_limit",
+      "pattern": "@app\\.route\\([^)]+\\)\\s*(?!@.*limiter|@.*rate_limit)",
+      "severity": "medium",
+      "description": "Endpoint without rate limiting",
+      "remediation": "Add rate limiting to prevent abuse"
+    }
+  ],
+  "cors_issues": [
+    {
+      "id": "cors_allow_all",
+      "pattern": "(?i)access-control-allow-origin\\s*:\\s*\\*|cors\\(.*origins?\\s*=\\s*['\"]\\*['\"]",
+      "severity": "high",
+      "description": "CORS configured to allow all origins",
+      "remediation": "Restrict CORS to specific trusted domains"
+    }
+  ],
+  "http_methods": [
+    {
+      "id": "dangerous_methods",
+      "pattern": "methods\\s*=\\s*\\[[^\\]]*(?:DELETE|PUT|PATCH)[^\\]]*\\]",
+      "severity": "medium",
+      "description": "Endpoint allows potentially dangerous HTTP methods",
+      "remediation": "Ensure proper authorization for destructive operations"
+    }
+  ],
+  "api_versioning": {
+    "current_version": "v3",
+    "deprecated_versions": ["v1"],
+    "sunset_versions": ["v2"],
+    "migration_deadline": {
+      "v1": "2024-12-31",
+      "v2": "2025-06-30"
+    }
+  },
+  "endpoint_security_requirements": {
+    "public": {
+      "auth_required": false,
+      "rate_limit": "100/hour",
+      "encryption": "optional"
+    },
+    "authenticated": {
+      "auth_required": true,
+      "rate_limit": "1000/hour",
+      "encryption": "required"
+    },
+    "admin": {
+      "auth_required": true,
+      "role_required": "admin",
+      "rate_limit": "500/hour",
+      "encryption": "required",
+      "audit_log": true,
+      "ip_whitelist": true
+    },
+    "payment": {
+      "auth_required": true,
+      "rate_limit": "100/hour",
+      "encryption": "required",
+      "pci_compliance": true,
+      "audit_log": true
+    }
+  }
+}
