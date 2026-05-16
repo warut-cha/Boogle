@@ -371,6 +371,106 @@ class MemoryManager:
         """List all memory entries"""
         return self.memory
     
+    def search_similar(self, incident: Dict[str, Any], max_results: int = 3) -> List[Dict[str, Any]]:
+        """
+        Find similar past incidents from JSON memory using keyword overlap.
+        Used as fallback when ChromaDB vector search is unavailable.
+        
+        Args:
+            incident: Current incident to find similar patterns for
+            max_results: Maximum number of results to return
+            
+        Returns:
+            List of similar memory entries
+        """
+        try:
+            all_memories = self.list_all()
+            if not all_memories:
+                return []
+            
+            # Build a keyword set from the current incident
+            incident_keywords = self._extract_keywords(incident)
+            
+            if not incident_keywords:
+                return []
+            
+            # Score each memory entry by keyword overlap
+            scored = []
+            for memory in all_memories:
+                memory_keywords = self._extract_keywords_from_memory(memory)
+                overlap = incident_keywords & memory_keywords
+                if overlap:
+                    score = len(overlap) / max(len(incident_keywords), 1)
+                    scored.append((score, memory))
+            
+            # Return top matches above a minimum threshold
+            scored.sort(key=lambda x: x[0], reverse=True)
+            return [m for score, m in scored[:max_results] if score >= 0.15]
+        except Exception as e:
+            logger.warning(f"Error in search_similar: {e}")
+            return []
+    
+    def _extract_keywords(self, incident: Dict[str, Any]) -> set:
+        """Extract searchable keywords from an incident"""
+        keywords = set()
+        
+        try:
+            # Finding types
+            for f in incident.get('findings', []):
+                ft = f.get('finding_type') or f.get('type', '')
+                if ft:
+                    keywords.add(ft.lower())
+            
+            # Severity
+            severity = incident.get('severity', '')
+            if severity:
+                keywords.add(severity.lower())
+            
+            # Affected assets — use stems not full paths
+            for ep in incident.get('affected_endpoints', []):
+                keywords.update(ep.lower().replace('/', ' ').split())
+            for tbl in incident.get('affected_database_tables', []):
+                keywords.add(tbl.lower())
+            for f in incident.get('affected_files', []):
+                keywords.add(Path(f).stem.lower())
+            
+            # Correlation type
+            ct = incident.get('correlation_type', '')
+            if ct:
+                keywords.add(ct.lower())
+            
+            # Remove noise words
+            noise_words = {'', 'api', 'the', 'and', 'for', 'v1', 'v2', 'v3'}
+            return keywords - noise_words
+        except Exception as e:
+            logger.warning(f"Error extracting keywords: {e}")
+            return set()
+    
+    def _extract_keywords_from_memory(self, memory: Dict[str, Any]) -> set:
+        """Extract searchable keywords from a stored memory entry"""
+        keywords = set()
+        
+        try:
+            pattern = memory.get('incident_pattern', '')
+            keywords.update(pattern.lower().replace('_', ' ').split())
+            
+            root_cause = memory.get('root_cause', '')
+            keywords.update(root_cause.lower().split())
+            
+            for signal in memory.get('signals_to_watch', []):
+                keywords.update(signal.lower().split())
+            
+            rule = memory.get('prevention_rule', '')
+            keywords.update(rule.lower().split())
+            
+            # Remove noise words
+            noise_words = {'', 'a', 'an', 'the', 'and', 'or', 'for', 'in',
+                          'to', 'of', 'is', 'are', 'was', 'that', 'with'}
+            return keywords - noise_words
+        except Exception as e:
+            logger.warning(f"Error extracting keywords from memory: {e}")
+            return set()
+    
     def export(self, output_path: str):
         """Export memory to file"""
         try:

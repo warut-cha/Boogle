@@ -12,11 +12,12 @@ logger = logging.getLogger(__name__)
 class ReasoningEngine:
     """AI reasoning engine powered by IBM Bob for enhanced security analysis"""
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any], memory_manager=None):
         """Initialize reasoning engine"""
         self.config = config
         self.local_models_enabled = config.get('local_models', {}).get('enabled', True)
         self.bob_enabled = config.get('bob', {}).get('enabled', True)
+        self._memory_manager_ref = memory_manager  # JSON memory fallback
         
         # Initialize Bob client
         self.bob_client = None
@@ -117,9 +118,25 @@ class ReasoningEngine:
         try:
             # Search for similar past incidents
             related_memory = []
+            
+            # Try ChromaDB vector search first
             if self.vector_memory:
-                similar = self.vector_memory.search_similar_incidents(incident, n_results=3)
-                related_memory = similar
+                try:
+                    similar = self.vector_memory.search_similar_incidents(incident, n_results=3)
+                    related_memory = similar
+                    logger.info(f"Vector memory: found {len(related_memory)} similar incidents")
+                except Exception as e:
+                    logger.warning(f"Vector memory search failed: {e}")
+            
+            # Fall back to JSON keyword search if vector search yielded nothing
+            if not related_memory and self._memory_manager_ref:
+                try:
+                    json_similar = self._memory_manager_ref.search_similar(incident, max_results=3)
+                    related_memory = json_similar
+                    if json_similar:
+                        logger.info(f"JSON memory fallback: found {len(json_similar)} similar patterns")
+                except Exception as e:
+                    logger.warning(f"JSON memory search failed: {e}")
             
             # Build Bob input
             bob_input = {

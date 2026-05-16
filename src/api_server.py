@@ -50,8 +50,8 @@ correlator = IncidentCorrelator(CONFIG['analysis']['correlation'])
 classifier = SeverityClassifier(CONFIG['severity'])
 confidence_scorer = ConfidenceScorer()
 attack_path_builder = AttackPathBuilder()
-reasoning_engine = ReasoningEngine(CONFIG['ai_engine'])
 memory_manager = MemoryManager(CONFIG['ai_engine']['memory'])
+reasoning_engine = ReasoningEngine(CONFIG['ai_engine'], memory_manager=memory_manager)
 
 # In-memory storage for demo (replace with database in production)
 FINDINGS_CACHE = []
@@ -238,7 +238,20 @@ def analyze_with_bob(incident_id):
         # Cache the result
         BOB_ANALYSIS_CACHE[incident_id] = bob_output
         
-        # Update AI memory
+        # Store Bob's ai_memory output back into the JSON memory store
+        if bob_output.get('ai_memory'):
+            try:
+                ai_mem = bob_output['ai_memory'].copy()
+                # Enrich with incident context before saving
+                ai_mem['source_incident_id'] = incident_id
+                ai_mem['source_severity'] = incident.get('severity', 'unknown')
+                ai_mem['timestamp'] = datetime.utcnow().isoformat() + 'Z'
+                memory_manager.add_memory(ai_mem)
+                console.print(f"[green]  ✓ Stored AI memory from {incident_id} to JSON store[/green]")
+            except Exception as e:
+                console.print(f"[yellow]  ⚠ Failed to store AI memory: {e}[/yellow]")
+        
+        # Update AI memory (legacy method - may be redundant now)
         memory_manager.learn_from_incidents([incident])
         
         return jsonify(bob_output)
@@ -325,6 +338,29 @@ def search_memory():
         
         results = memory_manager.search(pattern)
         return jsonify(results)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/memory/stats', methods=['GET'])
+def get_memory_stats():
+    """Return memory system statistics"""
+    try:
+        all_memories = memory_manager.list_all()
+        
+        # Count by incident pattern
+        patterns = {}
+        for m in all_memories:
+            p = m.get('incident_pattern', 'unknown')
+            patterns[p] = patterns.get(p, 0) + 1
+        
+        return jsonify({
+            'total_entries': len(all_memories),
+            'unique_patterns': len(patterns),
+            'top_patterns': sorted(patterns.items(), key=lambda x: x[1], reverse=True)[:5],
+            'vector_memory_available': bool(reasoning_engine.vector_memory),
+            'json_memory_path': str(memory_manager.storage_path)
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

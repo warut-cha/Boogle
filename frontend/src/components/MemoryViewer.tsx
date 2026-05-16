@@ -80,14 +80,29 @@ export default function MemoryViewer({ memories }: MemoryViewerProps) {
               }}>
                 {memory.memory_type.replace(/_/g, ' ')}
               </div>
-              <h3 style={{
-                fontSize: '1rem',
-                fontWeight: 600,
-                color: '#e6edf3',
-                margin: '0.5rem 0'
-              }}>
-                {memory.incident_pattern.replace(/_/g, ' ')}
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <h3 style={{
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  color: '#e6edf3',
+                  margin: '0.5rem 0'
+                }}>
+                  {memory.incident_pattern.replace(/_/g, ' ')}
+                </h3>
+                {(memory as any).source_incident_id && (
+                  <span style={{
+                    fontSize: '0.7rem',
+                    color: '#3fb950',
+                    backgroundColor: '#3fb95020',
+                    padding: '0.2rem 0.5rem',
+                    borderRadius: '0.25rem',
+                    border: '1px solid #3fb95040',
+                    fontWeight: 500
+                  }}>
+                    Learned from {(memory as any).source_incident_id}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Root Cause */}
