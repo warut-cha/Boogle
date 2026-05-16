@@ -59,22 +59,34 @@ def cli():
 
 @cli.command()
 @click.option('--path', '-p', required=True, help='Path to analyze (repository, directory, or file)')
-@click.option('--use-ibm-watson', is_flag=True, help='Enable IBM Watson AI integration')
+@click.option('--use-bob', is_flag=True, help='Enable IBM Bob AI reasoning (recommended)')
+@click.option('--use-ibm-watson', is_flag=True, help='[DEPRECATED] Use --use-bob instead')
+@click.option('--use-mock', is_flag=True, help='Use mock findings data for testing')
 @click.option('--output', '-o', default='./output', help='Output directory for reports')
-@click.option('--format', '-f', multiple=True, default=['markdown', 'json'], 
+@click.option('--format', '-f', multiple=True, default=['markdown', 'json'],
               help='Output format (markdown, json, html)')
 @click.option('--severity-threshold', '-s', default=1, type=int,
               help='Minimum severity level to report (1-5)')
-def analyze(path, use_ibm_watson, output, format, severity_threshold):
+def analyze(path, use_bob, use_ibm_watson, use_mock, output, format, severity_threshold):
     """
     Analyze code, logs, and runtime behavior for security risks
     """
+    # Handle deprecated flag
+    if use_ibm_watson:
+        console.print("[yellow]⚠️  --use-ibm-watson is deprecated. Use --use-bob instead.[/yellow]")
+        use_bob = True
+    
     console.print(Panel.fit(
-        "[bold cyan]🔍 Security Analysis Started[/bold cyan]",
+        "[bold cyan]🔍 Bob Sentinel Security Analysis Started[/bold cyan]",
         border_style="cyan"
     ))
     
     try:
+        # Import new components
+        from scanners.rust_scanner_client import RustScannerClient
+        from correlators.attack_path_builder import AttackPathBuilder
+        from classifiers.confidence_scorer import ConfidenceScorer
+        
         # Initialize components
         with Progress(
             SpinnerColumn(),
@@ -82,74 +94,67 @@ def analyze(path, use_ibm_watson, output, format, severity_threshold):
             console=console
         ) as progress:
             
-            # Step 1: Initialize database
-            task = progress.add_task("[cyan]Initializing database...", total=None)
-            db_manager = DatabaseManager(CONFIG['database'])
+            # Step 1: Run Rust scanner or use mock data
+            task = progress.add_task("[cyan]Scanning for security findings...", total=None)
+            rust_scanner = RustScannerClient()
+            paths_to_scan = [path] if isinstance(path, str) else path
+            findings = rust_scanner.scan(paths_to_scan, use_mock=use_mock)
             progress.update(task, completed=True)
+            console.print(f"[green]✓ Found {len(findings)} security findings[/green]")
             
-            # Step 2: Collect data
-            task = progress.add_task("[cyan]Collecting data...", total=None)
-            code_collector = CodeCollector(path, CONFIG['analysis'])
-            code_data = code_collector.collect()
-            progress.update(task, completed=True)
-            
-            # Step 3: Static analysis
-            task = progress.add_task("[cyan]Running static analysis...", total=None)
-            static_analyzer = StaticAnalyzer(CONFIG['security'])
-            static_findings = static_analyzer.analyze(code_data)
-            progress.update(task, completed=True)
-            
-            # Step 4: Deprecated API detection
-            task = progress.add_task("[cyan]Detecting deprecated APIs...", total=None)
-            api_detector = DeprecatedAPIDetector(CONFIG['analysis'])
-            api_findings = api_detector.detect(code_data)
-            progress.update(task, completed=True)
-            
-            # Step 5: Runtime analysis (if logs available)
-            task = progress.add_task("[cyan]Analyzing runtime behavior...", total=None)
-            runtime_analyzer = RuntimeAnalyzer(CONFIG['analysis'])
-            runtime_findings = runtime_analyzer.analyze()
-            progress.update(task, completed=True)
-            
-            # Step 6: Correlate findings
+            # Step 2: Correlate findings into incidents
             task = progress.add_task("[cyan]Correlating incidents...", total=None)
             correlator = IncidentCorrelator(CONFIG['analysis']['correlation'])
-            all_findings = static_findings + api_findings + runtime_findings
-            incidents = correlator.correlate(all_findings)
+            incidents = correlator.correlate(findings)
             progress.update(task, completed=True)
+            console.print(f"[green]✓ Created {len(incidents)} incidents[/green]")
             
-            # Step 7: Classify severity
+            # Step 3: Classify severity
             task = progress.add_task("[cyan]Classifying severity...", total=None)
             classifier = SeverityClassifier(CONFIG['severity'])
             for incident in incidents:
-                incident['severity'] = classifier.classify(incident)
+                severity_info = classifier.classify(incident)
+                incident['severity'] = severity_info['level_name']
+                incident['severity_level'] = severity_info['level']
             progress.update(task, completed=True)
             
-            # Step 8: Generate remediations
-            task = progress.add_task("[cyan]Generating remediations...", total=None)
-            fix_generator = FixGenerator(CONFIG['remediation'])
+            # Step 4: Calculate confidence scores
+            task = progress.add_task("[cyan]Calculating confidence scores...", total=None)
+            confidence_scorer = ConfidenceScorer()
             for incident in incidents:
-                incident['remediation'] = fix_generator.generate(incident)
+                confidence_info = confidence_scorer.calculate_confidence(incident)
+                incident['confidence_score'] = confidence_info['confidence_score']
+                incident['confidence_reasons'] = confidence_info['confidence_reasons']
+                incident['confidence_limitations'] = confidence_info['confidence_limitations']
             progress.update(task, completed=True)
             
-            # Step 9: AI reasoning (optional)
-            if use_ibm_watson:
-                task = progress.add_task("[cyan]Running AI analysis...", total=None)
+            # Step 5: Build attack paths
+            task = progress.add_task("[cyan]Building attack paths...", total=None)
+            attack_path_builder = AttackPathBuilder()
+            for incident in incidents:
+                attack_path = attack_path_builder.build_attack_path(incident)
+                incident['attack_path'] = attack_path
+            progress.update(task, completed=True)
+            
+            # Step 6: AI reasoning with Bob (optional)
+            if use_bob:
+                task = progress.add_task("[cyan]Running IBM Bob AI reasoning...", total=None)
                 reasoning_engine = ReasoningEngine(CONFIG['ai_engine'])
                 incidents = reasoning_engine.enhance_analysis(incidents)
                 progress.update(task, completed=True)
             
-            # Step 10: Generate reports
+            # Step 7: Generate reports
             task = progress.add_task("[cyan]Generating reports...", total=None)
             reporter = IncidentReporter(CONFIG['reporting'])
             report_paths = reporter.generate_reports(incidents, output, format)
             progress.update(task, completed=True)
             
-            # Step 11: Update AI memory
-            task = progress.add_task("[cyan]Updating AI memory...", total=None)
-            memory_manager = MemoryManager(CONFIG['ai_engine']['memory'])
-            memory_manager.learn_from_incidents(incidents)
-            progress.update(task, completed=True)
+            # Step 8: Update AI memory
+            if use_bob:
+                task = progress.add_task("[cyan]Updating AI memory...", total=None)
+                memory_manager = MemoryManager(CONFIG['ai_engine']['memory'])
+                memory_manager.learn_from_incidents(incidents)
+                progress.update(task, completed=True)
         
         # Display summary
         display_summary(incidents, severity_threshold)
@@ -168,12 +173,12 @@ def analyze(path, use_ibm_watson, output, format, severity_threshold):
 def display_summary(incidents, severity_threshold):
     """Display analysis summary"""
     # Filter by severity threshold
-    filtered_incidents = [i for i in incidents if i['severity']['level'] >= severity_threshold]
+    filtered_incidents = [i for i in incidents if i.get('severity_level', 1) >= severity_threshold]
     
     # Count by severity
     severity_counts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
     for incident in filtered_incidents:
-        level = incident['severity']['level']
+        level = incident.get('severity_level', 1)
         severity_counts[level] += 1
     
     # Create summary table
@@ -197,13 +202,13 @@ def display_summary(incidents, severity_threshold):
     console.print(table)
     
     # Display critical incidents
-    critical_incidents = [i for i in filtered_incidents if i['severity']['level'] == 5]
+    critical_incidents = [i for i in filtered_incidents if i.get('severity_level', 1) == 5]
     if critical_incidents:
         console.print("\n[bold red]⚠️  CRITICAL INCIDENTS DETECTED[/bold red]")
         for incident in critical_incidents:
-            console.print(f"\n[red]• {incident['title']}[/red]")
-            console.print(f"  ID: {incident['id']}")
-            console.print(f"  Confidence: {incident['severity']['confidence']:.2f}")
+            console.print(f"\n[red]• {incident.get('title', 'Unknown Incident')}[/red]")
+            console.print(f"  ID: {incident.get('incident_id', 'N/A')}")
+            console.print(f"  Confidence: {incident.get('confidence_score', 0.0):.2f}")
 
 
 @cli.command()

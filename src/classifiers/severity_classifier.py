@@ -263,13 +263,13 @@ class SeverityClassifier:
     def _level_to_name(self, level: int) -> str:
         """Convert level to name"""
         names = {
-            5: 'Critical',
-            4: 'High',
-            3: 'Medium',
-            2: 'Low',
-            1: 'Informational'
+            5: 'critical',
+            4: 'high',
+            3: 'medium',
+            2: 'low',
+            1: 'info'
         }
-        return names.get(level, 'Unknown')
+        return names.get(level, 'unknown')
     
     def _calculate_confidence(self, incident: Dict[str, Any]) -> float:
         """Calculate confidence in severity classification"""
