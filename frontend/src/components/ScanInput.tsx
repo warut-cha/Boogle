@@ -6,7 +6,7 @@ interface ScanInputProps {
 }
 
 export default function ScanInput({ onScanComplete }: ScanInputProps) {
-  const [scanPath, setScanPath] = useState('./mock-repos');
+  const [scanPath, setScanPath] = useState(() => localStorage.getItem('lastScanPath') || '');
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -17,6 +17,8 @@ export default function ScanInput({ onScanComplete }: ScanInputProps) {
       return;
     }
 
+    localStorage.setItem('lastScanPath', scanPath);
+    
     setIsScanning(true);
     setError(null);
     setScanResult(null);

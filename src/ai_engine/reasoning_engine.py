@@ -237,7 +237,7 @@ class ReasoningEngine:
     def _profile_attacker(self, incident: Dict[str, Any]) -> str:
         """Profile likely attacker"""
         findings = incident.get('findings', [])
-        finding_types = [f.get('type') for f in findings]
+        finding_types = [f.get('finding_type') for f in findings]
         
         if 'large_data_export' in finding_types and 'privilege_escalation' in finding_types:
             return 'Insider threat or advanced persistent threat (APT)'
@@ -251,7 +251,7 @@ class ReasoningEngine:
     def _identify_attack_stage(self, incident: Dict[str, Any]) -> str:
         """Identify current attack stage"""
         findings = incident.get('findings', [])
-        finding_types = [f.get('type') for f in findings]
+        finding_types = [f.get('finding_type') for f in findings]
         
         if 'large_data_export' in finding_types:
             return 'Exfiltration - Data being stolen'
@@ -286,7 +286,7 @@ class ReasoningEngine:
     def _assess_business_impact(self, incident: Dict[str, Any]) -> str:
         """Assess business impact"""
         findings = incident.get('findings', [])
-        finding_types = [f.get('type') for f in findings]
+        finding_types = [f.get('finding_type') for f in findings]
         
         if 'large_data_export' in finding_types or 'sensitive_data_in_logs' in finding_types:
             return 'High - Potential data breach and regulatory violations'
@@ -322,9 +322,12 @@ class ReasoningEngine:
     def _attribute_attack(self, incident: Dict[str, Any]) -> Dict[str, Any]:
         """Attribute attack characteristics"""
         evidence = incident.get('evidence', {})
+        source_ip = 'Unknown'
+        if isinstance(evidence, dict):
+            source_ip = evidence.get('ip_address', 'Unknown')
         
         return {
-            'source_ip': evidence.get('ip_address', 'Unknown'),
+            'source_ip': source_ip,
             'attack_vector': self._identify_attack_vector(incident),
             'tools_used': self._identify_tools(incident),
             'indicators_of_compromise': self._extract_iocs(incident)
@@ -333,7 +336,7 @@ class ReasoningEngine:
     def _identify_attack_vector(self, incident: Dict[str, Any]) -> str:
         """Identify primary attack vector"""
         findings = incident.get('findings', [])
-        finding_types = [f.get('type') for f in findings]
+        finding_types = [f.get('finding_type') for f in findings]
         
         if 'sql_injection_attempt' in finding_types:
             return 'SQL Injection'
@@ -366,7 +369,7 @@ class ReasoningEngine:
         iocs = []
         evidence = incident.get('evidence', {})
         
-        if 'ip_address' in evidence:
+        if isinstance(evidence, dict) and 'ip_address' in evidence:
             iocs.append(f"IP: {evidence['ip_address']}")
         
         findings = incident.get('findings', [])

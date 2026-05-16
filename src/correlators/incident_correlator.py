@@ -190,7 +190,7 @@ class IncidentCorrelator:
             for stage in pattern['stages']:
                 stage_findings = [
                     (i, f) for i, f in enumerate(findings)
-                    if f.get('type') == stage and i not in processed
+                    if f.get('finding_type') == stage and i not in processed
                 ]
                 
                 if stage_findings:
@@ -212,7 +212,7 @@ class IncidentCorrelator:
                     'attack_stages': pattern['stages'],
                     'evidence': {
                         'pattern_matched': pattern['name'],
-                        'stages_detected': [f['type'] for f in finding_objects]
+                        'stages_detected': [f.get('finding_type', 'unknown') for f in finding_objects]
                     }
                 }
                 
@@ -235,8 +235,10 @@ class IncidentCorrelator:
             
             # Extract IP from evidence
             ip = None
-            if 'evidence' in finding:
+            if 'evidence' in finding and isinstance(finding['evidence'], dict):
                 ip = finding['evidence'].get('ip_address')
+            elif finding.get('ip_address'):
+                ip = finding.get('ip_address')
             
             if ip:
                 ip_findings[ip].append((i, finding))
@@ -295,7 +297,7 @@ class IncidentCorrelator:
                     'evidence': {
                         'ip_address': ip,
                         'time_window_minutes': self.time_window_minutes,
-                        'finding_types': [f['type'] for f in finding_objects]
+                        'finding_types': [f.get('finding_type', 'unknown') for f in finding_objects]
                     }
                 }
                 
@@ -359,9 +361,11 @@ class IncidentCorrelator:
                 continue
             
             # Identify target
-            target = finding.get('file_path')
-            if not target and 'evidence' in finding:
+            target = finding.get('file_path') or finding.get('file')
+            if not target and 'evidence' in finding and isinstance(finding['evidence'], dict):
                 target = finding['evidence'].get('endpoint') or finding['evidence'].get('table')
+            if not target:
+                target = finding.get('endpoint') or finding.get('database_table')
             
             if target:
                 target_findings[target].append((i, finding))
@@ -387,7 +391,7 @@ class IncidentCorrelator:
                     'description': f'Multiple security issues found in same target: {target}',
                     'evidence': {
                         'target': target,
-                        'vulnerability_types': [f['type'] for f in finding_objects]
+                        'vulnerability_types': [f.get('finding_type', 'unknown') for f in finding_objects]
                     }
                 }
                 

@@ -1,0 +1,15 @@
+--- src/scanners/rust_scanner_client.py
++++ src/scanners/rust_scanner_client.py
+@@ -60,8 +60,11 @@
+         if not self.rust_scanner_path.exists():
+             raise FileNotFoundError(f"Rust scanner not found at {self.rust_scanner_path}")
+         
++        import shutil, os
++        cargo_path = shutil.which("cargo") or os.path.expanduser("~/.cargo/bin/cargo")
++        
+         # Build command
+-        cmd = ["cargo", "run", "--", "scan", "--paths"] + paths
++        cmd = [cargo_path, "run", "--", "scan", "--paths"] + paths
+         
+         # Run scanner
+         result = subprocess.run(

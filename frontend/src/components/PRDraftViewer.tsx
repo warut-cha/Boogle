@@ -8,6 +8,7 @@ interface PRDraftViewerProps {
 
 export default function PRDraftViewer({ prDraft }: PRDraftViewerProps) {
   const [copied, setCopied] = useState(false);
+  const [prCreated, setPrCreated] = useState(false);
 
   if (!prDraft) {
     return (
@@ -244,22 +245,41 @@ export default function PRDraftViewer({ prDraft }: PRDraftViewerProps) {
             </div>
           </div>
           <button
+            onClick={() => {
+              setPrCreated(true);
+              setTimeout(() => setPrCreated(false), 3000);
+            }}
+            disabled={prCreated}
             style={{
               padding: '0.75rem 1.5rem',
-              backgroundColor: '#238636',
+              backgroundColor: prCreated ? '#30363d' : '#238636',
               border: 'none',
               borderRadius: '6px',
               color: '#ffffff',
               fontSize: '0.875rem',
               fontWeight: 600,
-              cursor: 'pointer',
+              cursor: prCreated ? 'default' : 'pointer',
               transition: 'background-color 0.2s',
-              whiteSpace: 'nowrap'
+              whiteSpace: 'nowrap',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
             }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2ea043'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#238636'}
+            onMouseOver={(e) => {
+              if (!prCreated) e.currentTarget.style.backgroundColor = '#2ea043';
+            }}
+            onMouseOut={(e) => {
+              if (!prCreated) e.currentTarget.style.backgroundColor = '#238636';
+            }}
           >
-            Create PR →
+            {prCreated ? (
+              <>
+                <CheckCircle size={16} color="#56d364" />
+                PR Created
+              </>
+            ) : (
+              'Create PR →'
+            )}
           </button>
         </div>
       </div>

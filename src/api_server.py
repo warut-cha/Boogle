@@ -17,6 +17,10 @@ import yaml
 from datetime import datetime
 import json
 from rich.console import Console
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Initialize console for pretty printing
 console = Console()
@@ -39,7 +43,14 @@ def load_config():
     """Load configuration from YAML file"""
     config_path = Path(__file__).parent.parent / "config" / "config.yaml"
     with open(config_path, 'r') as f:
-        return yaml.safe_load(f)
+        config_str = f.read()
+        # Simple substitution for environment variables in yaml like ${VAR_NAME}
+        import re
+        def replace_env(match):
+            var_name = match.group(1)
+            return os.getenv(var_name, match.group(0))
+        config_str = re.sub(r'\$\{([^}]+)\}', replace_env, config_str)
+        return yaml.safe_load(config_str)
 
 CONFIG = load_config()
 
@@ -146,13 +157,6 @@ def health_check():
 def get_findings():
     """Get all security findings"""
     try:
-        # If cache is empty, run a scan
-        if not FINDINGS_CACHE:
-            # Use mock data for demo
-            mock_repos_path = Path(__file__).parent.parent / "mock-repos"
-            findings = rust_scanner.scan([str(mock_repos_path)], use_mock=True)
-            FINDINGS_CACHE.extend(findings)
-        
         return jsonify(FINDINGS_CACHE)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -162,34 +166,6 @@ def get_findings():
 def get_incidents():
     """Get all security incidents"""
     try:
-        # If cache is empty, correlate findings into incidents
-        if not INCIDENTS_CACHE:
-            if not FINDINGS_CACHE:
-                # Get findings first
-                mock_repos_path = Path(__file__).parent.parent / "mock-repos"
-                findings = rust_scanner.scan([str(mock_repos_path)], use_mock=True)
-                FINDINGS_CACHE.extend(findings)
-            
-            # Correlate findings into incidents
-            incidents = correlator.correlate(FINDINGS_CACHE)
-            
-            # Classify severity and calculate confidence
-            for incident in incidents:
-                severity_info = classifier.classify(incident)
-                incident['severity'] = severity_info['level_name']
-                incident['severity_level'] = severity_info['level']
-                
-                confidence_info = confidence_scorer.calculate_confidence(incident)
-                incident['confidence_score'] = confidence_info['confidence_score']
-                incident['confidence_reasons'] = confidence_info['confidence_reasons']
-                incident['confidence_limitations'] = confidence_info['confidence_limitations']
-                
-                # Build attack path
-                attack_path = attack_path_builder.build_attack_path(incident)
-                incident['attack_path'] = attack_path
-            
-            INCIDENTS_CACHE.extend(incidents)
-        
         return jsonify(INCIDENTS_CACHE)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -275,9 +251,23 @@ def run_analysis():
         FINDINGS_CACHE.clear()
         INCIDENTS_CACHE.clear()
         BOB_ANALYSIS_CACHE.clear()
-        
+        # Resolve paths relative to project root
+        project_root = Path(__file__).parent.parent
+        resolved_paths = []
+        for p in paths:
+            if p.startswith('./'):
+                resolved_paths.append(str(project_root / p[2:]))
+            elif p.startswith('../'):
+                resolved_paths.append(str(project_root / p))
+            else:
+                # Assume it's already absolute or handle as is
+                if os.path.isabs(p):
+                    resolved_paths.append(p)
+                else:
+                    resolved_paths.append(str(project_root / p))
+                    
         # Step 1: Scan for findings
-        findings = rust_scanner.scan(paths, use_mock=use_mock)
+        findings = rust_scanner.scan(resolved_paths, use_mock=use_mock)
         FINDINGS_CACHE.extend(findings)
         
         # Step 2: Correlate into incidents

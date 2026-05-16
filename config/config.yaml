@@ -101,7 +101,7 @@ ai_engine:
   bob:
     enabled: true
     mock_mode: false  # Real AI enabled!
-    model_id: "ibm/granite-13b-chat-v2"
+    model_id: "ibm/granite-8b-code-instruct"
     project_id: "${WATSONX_PROJECT_ID}"
     api_key: "${WATSONX_API_KEY}"
     url: "${WATSONX_URL}"
