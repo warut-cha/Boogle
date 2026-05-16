@@ -33,7 +33,7 @@ export type Finding = {
   category: FindingCategory;
   severity_hint: Severity;
   source: FindingSource;
-  file: string;
+  file: string | null;
   line: number | null;
   endpoint: string | null;
   database_table: string | null;
