@@ -23,29 +23,30 @@ type ActiveTab = "overview" | "findings" | "incident" | "analysis";
 
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
-  backgroundColor: "#0f1419",
-  color: "#e6edf3",
-  padding: "0 1.5rem 2rem",
+  backgroundColor: "#f5f5f5",
+  color: "#151515",
+  padding: "0",
 };
 
 const headerStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  padding: "1rem 0",
-  borderBottom: "1px solid #30363d",
-  marginBottom: "1.5rem",
+  padding: "0.75rem 2rem",
+  backgroundColor: "#3c3f42",
+  color: "#ffffff",
+  marginBottom: "0",
 };
 
 const statusBarStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  backgroundColor: "#161b22",
-  border: "1px solid #30363d",
-  borderRadius: "8px",
-  padding: "1rem",
-  marginBottom: "1.5rem",
+  backgroundColor: "#ffffff",
+  border: "1px solid #d2d2d2",
+  borderRadius: "0",
+  padding: "1rem 2rem",
+  marginBottom: "0",
 };
 
 const tabButtonBase: CSSProperties = {
@@ -53,14 +54,15 @@ const tabButtonBase: CSSProperties = {
   backgroundColor: "transparent",
   border: "none",
   borderBottom: "2px solid transparent",
-  color: "#8b949e",
+  color: "#6a6e73",
   fontSize: "0.875rem",
   fontWeight: 600,
   cursor: "pointer",
 };
 
 const sectionStyle: CSSProperties = {
-  marginTop: "2rem",
+  marginTop: "1.5rem",
+  padding: "0 2rem",
 };
 
 function mergeById<T extends Record<string, unknown>>(
@@ -275,38 +277,42 @@ export default function DashboardPage() {
   return (
     <main style={pageStyle}>
       <header style={headerStyle}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <span style={{ fontSize: "1.8rem" }}>🛡️</span>
-          <h1 style={{ margin: 0, color: "#58a6ff" }}>Jeff</h1>
-          <span
-            style={{
-              backgroundColor: "#21262d",
-              color: "#8b949e",
-              borderRadius: "999px",
-              padding: "0.35rem 0.75rem",
-            }}
-          >
-            Autonomous DevSecOps Assistant
-          </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <div style={{
+            width: "32px",
+            height: "32px",
+            backgroundColor: "#ee0000",
+            borderRadius: "4px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "1.2rem"
+          }}>
+            🛡️
+          </div>
+          <h1 style={{ margin: 0, color: "#ffffff", fontSize: "1.125rem", fontWeight: 400 }}>
+            Detections Dashboard
+          </h1>
         </div>
 
-        <span style={{ color: "#8b949e", fontSize: "0.875rem" }}>
+        <span style={{ color: "#d2d2d2", fontSize: "0.875rem" }}>
           Powered by IBM Bob
         </span>
       </header>
 
       <section style={statusBarStyle}>
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
           {isConnected ? (
             <span
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: "0.5rem",
-                color: "#3fb950",
+                color: "#3e8635",
+                fontSize: "0.875rem",
               }}
             >
-              <Wifi size={18} /> Real-time Monitoring Active
+              <Wifi size={16} /> Real-time Monitoring Active
             </span>
           ) : (
             <span
@@ -314,11 +320,26 @@ export default function DashboardPage() {
                 display: "flex",
                 alignItems: "center",
                 gap: "0.5rem",
-                color: "#f85149",
+                color: "#c9190b",
+                fontSize: "0.875rem",
               }}
             >
-              <WifiOff size={18} /> Disconnected
-              <button onClick={reconnect}>Reconnect</button>
+              <WifiOff size={16} /> Disconnected
+              <button
+                onClick={reconnect}
+                style={{
+                  marginLeft: "0.5rem",
+                  padding: "0.25rem 0.75rem",
+                  backgroundColor: "#0066cc",
+                  border: "none",
+                  borderRadius: "3px",
+                  color: "#fff",
+                  fontSize: "0.75rem",
+                  cursor: "pointer",
+                }}
+              >
+                Reconnect
+              </button>
             </span>
           )}
 
@@ -327,11 +348,12 @@ export default function DashboardPage() {
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "0.75rem",
-                color: "#d29922",
+                gap: "0.5rem",
+                color: "#f0ab00",
+                fontSize: "0.875rem",
               }}
             >
-              <Bell size={18} />
+              <Bell size={16} />
               {newFindings.length > 0 &&
                 `${newFindings.length} new finding${newFindings.length > 1 ? "s" : ""}`}
               {newFindings.length > 0 && newIncidents.length > 0 && ", "}
@@ -345,12 +367,13 @@ export default function DashboardPage() {
           <button
             onClick={handleTriggerScan}
             style={{
-              padding: "0.75rem 1.25rem",
-              backgroundColor: "#238636",
+              padding: "0.5rem 1rem",
+              backgroundColor: "#0066cc",
               border: "none",
-              borderRadius: "6px",
+              borderRadius: "3px",
               color: "#fff",
-              fontWeight: 700,
+              fontSize: "0.875rem",
+              fontWeight: 600,
               cursor: "pointer",
             }}
           >
@@ -360,19 +383,20 @@ export default function DashboardPage() {
           <button
             onClick={handleClearAll}
             style={{
-              padding: "0.75rem 1.25rem",
-              backgroundColor: "#21262d",
-              border: "1px solid #30363d",
-              borderRadius: "6px",
-              color: "#e6edf3",
-              fontWeight: 700,
+              padding: "0.5rem 1rem",
+              backgroundColor: "#ffffff",
+              border: "1px solid #d2d2d2",
+              borderRadius: "3px",
+              color: "#151515",
+              fontSize: "0.875rem",
+              fontWeight: 600,
               cursor: "pointer",
             }}
           >
             Clear Dashboard
           </button>
 
-          <span style={{ color: "#8b949e", fontSize: "0.875rem" }}>
+          <span style={{ color: "#6a6e73", fontSize: "0.875rem" }}>
             Last updated: {new Date().toLocaleTimeString()}
           </span>
         </div>
@@ -384,11 +408,12 @@ export default function DashboardPage() {
             position: "fixed",
             top: "1.5rem",
             right: "1.5rem",
-            backgroundColor: "#161b22",
-            border: "1px solid #58a6ff",
-            borderRadius: "8px",
+            backgroundColor: "#ffffff",
+            border: "1px solid #0066cc",
+            borderRadius: "3px",
             padding: "1rem 1.5rem",
-            color: "#e6edf3",
+            color: "#151515",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
             zIndex: 1000,
           }}
         >
@@ -399,8 +424,10 @@ export default function DashboardPage() {
       <nav
         style={{
           display: "flex",
-          borderBottom: "1px solid #30363d",
-          marginBottom: "2rem",
+          borderBottom: "1px solid #d2d2d2",
+          marginBottom: "0",
+          backgroundColor: "#ffffff",
+          padding: "0 2rem",
         }}
       >
         {tabs.map((tab) => (
@@ -409,8 +436,8 @@ export default function DashboardPage() {
             onClick={() => setActiveTab(tab.id)}
             style={{
               ...tabButtonBase,
-              borderBottomColor: activeTab === tab.id ? "#58a6ff" : "transparent",
-              color: activeTab === tab.id ? "#58a6ff" : "#8b949e",
+              borderBottomColor: activeTab === tab.id ? "#0066cc" : "transparent",
+              color: activeTab === tab.id ? "#0066cc" : "#6a6e73",
             }}
           >
             {tab.label}

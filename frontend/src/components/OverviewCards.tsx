@@ -24,34 +24,44 @@ interface CardProps {
 }
 
 const cardStyle: CSSProperties = {
-  backgroundColor: "#161b22",
-  border: "1px solid #30363d",
-  borderRadius: "8px",
+  backgroundColor: "#ffffff",
+  border: "1px solid #d2d2d2",
+  borderRadius: "0",
   padding: "1.5rem",
-  minHeight: "140px",
+  minHeight: "160px",
+  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
 };
 
 function Card({ icon, title, value, subtitle, color }: CardProps) {
   return (
     <div style={cardStyle}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "0.75rem",
-          marginBottom: "1.5rem",
-        }}
-      >
-        <span style={{ color }}>{icon}</span>
-        <span style={{ color: "#8b949e", fontWeight: 600 }}>{title}</span>
-      </div>
-
-      <div style={{ color: "#e6edf3", fontSize: "2rem", fontWeight: 700 }}>
-        {value}
+      <div style={{ marginBottom: "1rem" }}>
+        <div style={{
+          color: "#0066cc",
+          fontSize: "4rem",
+          fontWeight: 300,
+          lineHeight: 1,
+          marginBottom: "0.5rem"
+        }}>
+          {value}
+        </div>
+        <div style={{
+          color: "#151515",
+          fontSize: "0.875rem",
+          fontWeight: 600,
+          marginBottom: "0.25rem"
+        }}>
+          {title}
+        </div>
       </div>
 
       {subtitle && (
-        <div style={{ color: "#8b949e", fontSize: "0.875rem", marginTop: "0.5rem" }}>
+        <div style={{
+          color: "#6a6e73",
+          fontSize: "0.8rem",
+          borderTop: "1px solid #f0f0f0",
+          paddingTop: "0.75rem"
+        }}>
           {subtitle}
         </div>
       )}
@@ -93,57 +103,57 @@ export default function OverviewCards({
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-        gap: "1rem",
-        marginBottom: "2rem",
+        gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+        gap: "1.5rem",
+        marginBottom: "1.5rem",
       }}
     >
       <Card
-        icon={<Shield size={28} />}
-        title="Repos Scanned"
-        value={affectedRepos}
-        subtitle={affectedRepos === 0 ? "No repositories loaded" : "Active monitoring"}
-        color="#58a6ff"
-      />
-
-      <Card
-        icon={<AlertTriangle size={28} />}
-        title="Total Findings"
+        icon={<Shield size={24} />}
+        title="New detections"
         value={findings.length}
-        subtitle={`${highSeverityFindings} high/critical`}
-        color="#f85149"
+        subtitle={affectedRepos === 0 ? "No repositories loaded" : `Monitoring ${affectedRepos} repositories`}
+        color="#0066cc"
       />
 
       <Card
-        icon={<Activity size={28} />}
-        title="Correlated Incidents"
+        icon={<AlertTriangle size={24} />}
+        title="High severity findings"
+        value={highSeverityFindings}
+        subtitle={`${findings.length} total findings detected`}
+        color="#c9190b"
+      />
+
+      <Card
+        icon={<Activity size={24} />}
+        title="Correlated incidents"
         value={incidents.length}
-        subtitle={`${criticalIncidents} critical`}
-        color="#ff7b72"
+        subtitle={`${criticalIncidents} critical incidents`}
+        color="#0066cc"
       />
 
       <Card
-        icon={<Database size={28} />}
-        title="Confidence Score"
+        icon={<Database size={24} />}
+        title="Confidence score"
         value={`${avgConfidence}%`}
-        subtitle="Average across incidents"
-        color="#a371f7"
+        subtitle="Average across all incidents"
+        color="#0066cc"
       />
 
       <Card
-        icon={<FileCode size={28} />}
-        title="Tests Generated"
+        icon={<FileCode size={24} />}
+        title="Tests generated"
         value={generatedTestsCount}
         subtitle="Security regression tests"
-        color="#56d364"
+        color="#3e8635"
       />
 
       <Card
-        icon={<GitPullRequest size={28} />}
-        title="PR Drafts"
+        icon={<GitPullRequest size={24} />}
+        title="PR drafts ready"
         value={prDraftsCount}
         subtitle={prDraftsCount > 0 ? "Ready for review" : "No PR draft yet"}
-        color="#d29922"
+        color="#f0ab00"
       />
     </div>
   );

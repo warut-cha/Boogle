@@ -7,11 +7,11 @@ interface FindingsTableProps {
 
 const getSeverityColor = (severity: string): string => {
   switch (severity) {
-    case 'critical': return '#f85149';
-    case 'high': return '#ff7b72';
-    case 'medium': return '#d29922';
-    case 'low': return '#58a6ff';
-    default: return '#8b949e';
+    case 'critical': return '#c9190b';
+    case 'high': return '#c9190b';
+    case 'medium': return '#f0ab00';
+    case 'low': return '#0066cc';
+    default: return '#6a6e73';
   }
 };
 
@@ -31,12 +31,12 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
   if (findings.length === 0) {
     return (
       <div style={{
-        backgroundColor: '#161b22',
-        border: '1px solid #30363d',
-        borderRadius: '8px',
+        backgroundColor: '#ffffff',
+        border: '1px solid #d2d2d2',
+        borderRadius: '0',
         padding: '2rem',
         textAlign: 'center',
-        color: '#8b949e'
+        color: '#6a6e73'
       }}>
         No findings detected
       </div>
@@ -45,27 +45,30 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
 
   return (
     <div style={{
-      backgroundColor: '#161b22',
-      border: '1px solid #30363d',
-      borderRadius: '8px',
-      overflow: 'hidden'
+      backgroundColor: '#ffffff',
+      border: '1px solid #d2d2d2',
+      borderRadius: '0',
+      overflow: 'hidden',
+      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
     }}>
       <div style={{
         padding: '1rem 1.5rem',
-        borderBottom: '1px solid #30363d',
+        borderBottom: '1px solid #d2d2d2',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between'
+        justifyContent: 'space-between',
+        backgroundColor: '#f5f5f5'
       }}>
-        <h2 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#e6edf3', margin: 0 }}>
-          Security Findings
+        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#151515', margin: 0 }}>
+          Most recent detections
         </h2>
         <span style={{
           fontSize: '0.875rem',
-          color: '#8b949e',
-          backgroundColor: '#21262d',
+          color: '#6a6e73',
+          backgroundColor: '#ffffff',
           padding: '0.25rem 0.75rem',
-          borderRadius: '1rem'
+          borderRadius: '3px',
+          border: '1px solid #d2d2d2'
         }}>
           {findings.length} total
         </span>
@@ -74,94 +77,69 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ backgroundColor: '#0d1117', borderBottom: '1px solid #30363d' }}>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#8b949e', textTransform: 'uppercase' }}>
-                ID
-              </th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#8b949e', textTransform: 'uppercase' }}>
-                Type
-              </th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#8b949e', textTransform: 'uppercase' }}>
+            <tr style={{ backgroundColor: '#f5f5f5', borderBottom: '1px solid #d2d2d2' }}>
+              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#6a6e73', textTransform: 'uppercase' }}>
                 Severity
               </th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#8b949e', textTransform: 'uppercase' }}>
-                Repository
+              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#6a6e73', textTransform: 'uppercase' }}>
+                Tactic & Technique
               </th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#8b949e', textTransform: 'uppercase' }}>
-                File
+              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#6a6e73', textTransform: 'uppercase' }}>
+                Detect Time
               </th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#8b949e', textTransform: 'uppercase' }}>
-                Evidence
-              </th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#8b949e', textTransform: 'uppercase' }}>
-                Source
+              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#6a6e73', textTransform: 'uppercase' }}>
+                Host
               </th>
             </tr>
           </thead>
           <tbody>
             {findings.map((finding, index) => (
-              <tr 
+              <tr
                 key={finding.finding_id}
                 style={{
-                  borderBottom: index < findings.length - 1 ? '1px solid #21262d' : 'none',
-                  backgroundColor: index % 2 === 0 ? '#0d1117' : 'transparent'
+                  borderBottom: index < findings.length - 1 ? '1px solid #f0f0f0' : 'none',
+                  backgroundColor: '#ffffff'
                 }}
               >
-                <td style={{ padding: '1rem', fontSize: '0.875rem', color: '#58a6ff', fontFamily: 'monospace' }}>
-                  {finding.finding_id}
-                </td>
                 <td style={{ padding: '1rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ color: '#8b949e' }}>
+                    <div style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '50%',
+                      backgroundColor: getSeverityColor(finding.severity_hint),
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#ffffff',
+                      fontSize: '0.75rem',
+                      fontWeight: 600
+                    }}>
                       {getCategoryIcon(finding.category)}
-                    </span>
-                    <span style={{ fontSize: '0.875rem', color: '#e6edf3' }}>
-                      {finding.finding_type.replace(/_/g, ' ')}
-                    </span>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.875rem', color: '#151515', fontWeight: 600 }}>
+                        High
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: '#6a6e73' }}>
+                        +1 other
+                      </div>
+                    </div>
                   </div>
                 </td>
                 <td style={{ padding: '1rem' }}>
-                  <span style={{
-                    display: 'inline-block',
-                    padding: '0.25rem 0.75rem',
-                    borderRadius: '1rem',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    backgroundColor: `${getSeverityColor(finding.severity_hint)}20`,
-                    color: getSeverityColor(finding.severity_hint)
-                  }}>
-                    {finding.severity_hint}
-                  </span>
-                </td>
-                <td style={{ padding: '1rem', fontSize: '0.875rem', color: '#e6edf3' }}>
-                  {finding.repo_name}
-                </td>
-                <td style={{ padding: '1rem', fontSize: '0.875rem', color: '#8b949e', fontFamily: 'monospace' }}>
-                  {finding.file || '-'}
-                  {finding.line && <span style={{ color: '#58a6ff' }}>:{finding.line}</span>}
-                </td>
-                <td style={{ padding: '1rem', fontSize: '0.875rem', color: '#e6edf3', maxWidth: '300px' }}>
-                  <div style={{ 
-                    overflow: 'hidden', 
-                    textOverflow: 'ellipsis', 
-                    whiteSpace: 'nowrap' 
-                  }}>
-                    {finding.evidence}
+                  <div style={{ fontSize: '0.875rem', color: '#151515', marginBottom: '0.25rem' }}>
+                    {finding.finding_type.replace(/_/g, ' ')}
                   </div>
-                  {finding.masked_value && (
-                    <div style={{ 
-                      fontSize: '0.75rem', 
-                      color: '#8b949e', 
-                      fontFamily: 'monospace',
-                      marginTop: '0.25rem'
-                    }}>
-                      {finding.masked_value}
-                    </div>
-                  )}
+                  <div style={{ fontSize: '0.75rem', color: '#6a6e73' }}>
+                    {finding.evidence.substring(0, 50)}...
+                  </div>
                 </td>
-                <td style={{ padding: '1rem', fontSize: '0.75rem', color: '#8b949e' }}>
-                  {finding.source.replace(/_/g, ' ')}
+                <td style={{ padding: '1rem', fontSize: '0.875rem', color: '#151515' }}>
+                  {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </td>
+                <td style={{ padding: '1rem', fontSize: '0.875rem', color: '#151515' }}>
+                  {finding.repo_name}
                 </td>
               </tr>
             ))}
