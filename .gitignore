@@ -1,4 +1,6 @@
+# -----------------------------
 # Python
+# -----------------------------
 __pycache__/
 *.py[cod]
 *$py.class
@@ -20,68 +22,117 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual Environment
+# Virtual environments
 venv/
 env/
 ENV/
-.venv
+.venv/
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Testing
+# Testing / coverage
 .pytest_cache/
 .coverage
 htmlcov/
 .tox/
+.mypy_cache/
+.ruff_cache/
 
-# Logs
-*.log
-logs/
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-data/
-
-# Output
-output/
-reports/
-
-# Models
-models/*.json
-models/*.pkl
-!models/.gitkeep
-
-# Environment
+# -----------------------------
+# Environment / secrets
+# -----------------------------
 .env
 .env.local
 .env.*.local
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Temporary
-*.tmp
-*.temp
-temp/
-tmp/
-
-# Secrets (just in case)
 secrets/
 credentials/
 *.pem
 *.key
 *.crt
 
-# Made with Bob
+# -----------------------------
+# Logs
+# -----------------------------
+*.log
+logs/
 
-# Rust build output
-rust-scanner/target/
-target/
+# Keep mock demo logs
+!mock-repos/**/logs/
+!mock-repos/**/logs/**
+
+# -----------------------------
+# Database / generated data
+# -----------------------------
+*.db
+*.sqlite
+*.sqlite3
+data/
+
+# Keep mock database event files
+!mock-repos/**/database/
+!mock-repos/**/database/**
+
+# -----------------------------
+# Output / generated files
+# -----------------------------
+output/
+reports/
+generated_reports/*
+!generated_reports/.gitkeep
+
+generated_tests/*
+!generated_tests/.gitkeep
+
+# -----------------------------
+# Models
+# -----------------------------
+models/*.json
+models/*.pkl
+!models/.gitkeep
+
+# -----------------------------
+# Rust
+# -----------------------------
+/rust-scanner/target/
+/target/
+/.cargo/
+*.rs.bk
+
+# -----------------------------
+# Frontend / Node / TypeScript
+# -----------------------------
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.turbo/
+frontend/coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# -----------------------------
+# IDE / editor
+# -----------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# -----------------------------
+# OS files
+# -----------------------------
+.DS_Store
+Thumbs.db
+
+# -----------------------------
+# Temporary files
+# -----------------------------
+*.tmp
+*.temp
+temp/
+tmp/
+
+# -----------------------------
+# Project note
+# -----------------------------
+# made with bob
