@@ -193,4 +193,4 @@ The Rust scanner successfully:
 5. Provides clean, parseable output
 6. Integrates seamlessly with the Python backend
 
-The scanner is **production-ready** and meets all acceptance criteria for the Bob Sentinel project.
+The scanner is **production-ready** and meets all acceptance criteria for the Jeff project.

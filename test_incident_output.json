@@ -4,12 +4,12 @@
   "severity": "medium",
   "severity_level": 3,
   "affected_repos": [
-    "infra-config",
-    "legacy-backend"
+    "legacy-backend",
+    "infra-config"
   ],
   "affected_files": [
-    "legacy/old_export_api.py",
-    "gateway.yml"
+    "gateway.yml",
+    "legacy/old_export_api.py"
   ],
   "affected_endpoints": [
     "/api/v1/export-users"
@@ -31,7 +31,7 @@
       "database_table": null,
       "evidence": "Hardcoded API key detected in legacy export endpoint",
       "masked_value": "sk_test_****92fa",
-      "timestamp": "2026-05-16T14:45:24.325969Z"
+      "timestamp": "2026-05-16T15:42:34.960096Z"
     },
     {
       "finding_id": "FIND-002",
@@ -46,7 +46,7 @@
       "database_table": null,
       "evidence": "Deprecated export endpoint still accessible",
       "masked_value": null,
-      "timestamp": "2026-05-16T14:45:24.325969Z"
+      "timestamp": "2026-05-16T15:42:34.960096Z"
     },
     {
       "finding_id": "FIND-003",
@@ -61,7 +61,7 @@
       "database_table": null,
       "evidence": "Repeated suspicious access to deprecated endpoint (47 requests in 10 minutes)",
       "masked_value": null,
-      "timestamp": "2026-05-16T14:45:24.325969Z"
+      "timestamp": "2026-05-16T15:42:34.960096Z"
     },
     {
       "finding_id": "FIND-004",
@@ -76,7 +76,7 @@
       "database_table": "users",
       "evidence": "Abnormal read spike on users table (2,847 rows read in 5 minutes)",
       "masked_value": null,
-      "timestamp": "2026-05-16T14:45:24.325969Z"
+      "timestamp": "2026-05-16T15:42:34.960096Z"
     },
     {
       "finding_id": "FIND-005",
@@ -91,13 +91,13 @@
       "database_table": null,
       "evidence": "Gateway configuration still routes to deprecated export endpoint",
       "masked_value": null,
-      "timestamp": "2026-05-16T14:45:24.325969Z"
+      "timestamp": "2026-05-16T15:42:34.960096Z"
     }
   ],
   "finding_count": 5,
   "correlation_type": "attack_chain",
   "description": "Detected coordinated attack: Hardcoded API key in abandoned export API with suspicious access patterns and database activity",
-  "timestamp": "2026-05-16T14:45:24.326468Z",
+  "timestamp": "2026-05-16T15:42:34.960477Z",
   "confidence_score": 0.92,
   "confidence_reasons": [
     "Hardcoded API key found",

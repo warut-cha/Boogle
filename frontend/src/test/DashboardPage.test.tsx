@@ -6,7 +6,7 @@ import DashboardPage from '../pages/DashboardPage'
 describe('DashboardPage', () => {
   it('shows loading spinner initially', () => {
     render(<DashboardPage />)
-    expect(screen.getByText(/loading bob sentinel/i)).toBeInTheDocument()
+    expect(screen.getByText(/loading Jeff/i)).toBeInTheDocument()
   })
 
   it('renders all 4 navigation tabs after loading', async () => {

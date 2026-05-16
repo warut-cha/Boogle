@@ -1,0 +1,121 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BobOutput",
+  "description": "Output from IBM Bob AI reasoning",
+  "type": "object",
+  "required": [
+    "attack_type",
+    "target",
+    "severity",
+    "confidence_assessment",
+    "recommended_fixes",
+    "generated_security_tests",
+    "incident_report",
+    "ai_memory",
+    "pr_draft"
+  ],
+  "properties": {
+    "attack_type": {
+      "type": "string",
+      "description": "Type of attack detected"
+    },
+    "target": {
+      "type": "string",
+      "description": "Target of the attack"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["info", "low", "medium", "high", "critical"]
+    },
+    "confidence_assessment": {
+      "type": "string",
+      "description": "Bob's assessment of confidence in the analysis"
+    },
+    "recommended_fixes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "description"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "immediate_action",
+              "code_fix",
+              "api_fix",
+              "config_fix",
+              "infrastructure_fix",
+              "test_fix",
+              "memory_rule"
+            ]
+          },
+          "description": { "type": "string" },
+          "file": { "type": "string" },
+          "endpoint": { "type": "string" }
+        }
+      }
+    },
+    "generated_security_tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "name", "purpose", "code"],
+        "properties": {
+          "file": { "type": "string" },
+          "name": { "type": "string" },
+          "purpose": { "type": "string" },
+          "code": { "type": "string" }
+        }
+      }
+    },
+    "incident_report": {
+      "type": "string",
+      "description": "Markdown formatted incident report"
+    },
+    "ai_memory": {
+      "type": "object",
+      "required": [
+        "memory_type",
+        "incident_pattern",
+        "root_cause",
+        "signals_to_watch",
+        "prevention_rule",
+        "recommended_tests"
+      ],
+      "properties": {
+        "memory_type": {
+          "type": "string",
+          "enum": ["security_prevention_rule", "incident_pattern", "false_positive_rule"]
+        },
+        "incident_pattern": { "type": "string" },
+        "root_cause": { "type": "string" },
+        "signals_to_watch": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "prevention_rule": { "type": "string" },
+        "recommended_tests": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "severity_escalation_conditions": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "pr_draft": {
+      "type": "object",
+      "required": ["branch_name", "pr_title", "pr_description", "files_to_change"],
+      "properties": {
+        "branch_name": { "type": "string" },
+        "pr_title": { "type": "string" },
+        "pr_description": { "type": "string" },
+        "files_to_change": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

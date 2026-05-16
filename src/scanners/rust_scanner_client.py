@@ -61,7 +61,7 @@ class RustScannerClient:
             raise FileNotFoundError(f"Rust scanner not found at {self.rust_scanner_path}")
         
         # Build command
-        cmd = ["cargo", "run", "--", "scan", "--paths"] + paths
+        cmd = ["cargo", "run", "--", "scan", "--path"] + paths
         
         # Run scanner
         result = subprocess.run(

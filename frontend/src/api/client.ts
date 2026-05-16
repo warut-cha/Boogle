@@ -127,19 +127,40 @@ export const apiClient = {
       hasUpdates: Boolean(response.data?.hasUpdates),
     };
   },
-
+  
   async triggerScan(
     paths: string[],
     useMock: boolean = true,
     useBob: boolean = true
-  ): Promise<{ status: string; message: string; paths: string[] }> {
+  ): Promise<{
+    status: string;
+    message: string;
+    run_id: string;
+    paths: string[];
+    new_findings: Finding[];
+    new_incidents: Incident[];
+    bob_analysis: BobOutput | null;
+    total_findings: number;
+    total_incidents: number;
+  }> {
     const response = await axios.post(`${API_BASE_URL}/api/scan`, {
       paths,
       use_mock: useMock,
       use_bob: useBob,
     });
 
-    return response.data;
+    return {
+      ...response.data,
+      new_findings: Array.isArray(response.data?.new_findings)
+        ? response.data.new_findings.map(normalizeFinding)
+        : [],
+      new_incidents: Array.isArray(response.data?.new_incidents)
+        ? response.data.new_incidents.map(normalizeIncident)
+        : [],
+      bob_analysis: response.data?.bob_analysis
+        ? normalizeBobOutput(response.data.bob_analysis)
+        : null,
+    };
   },
 
   async clearAllData(): Promise<ResetResponse> {

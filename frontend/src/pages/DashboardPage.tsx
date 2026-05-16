@@ -63,6 +63,26 @@ const sectionStyle: CSSProperties = {
   marginTop: "2rem",
 };
 
+function mergeById<T extends Record<string, unknown>>(
+  current: T[],
+  incoming: T[],
+  idKey: keyof T
+): T[] {
+  const map = new Map<string, T>();
+
+  for (const item of current) {
+    const id = String(item[idKey]);
+    map.set(id, item);
+  }
+
+  for (const item of incoming) {
+    const id = String(item[idKey]);
+    map.set(id, item);
+  }
+
+  return Array.from(map.values());
+}
+
 export default function DashboardPage() {
   const [findings, setFindings] = useState<Finding[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -87,7 +107,11 @@ export default function DashboardPage() {
   const handleNewFinding = useCallback(
     (finding: Finding) => {
       const normalized = normalizeFinding(finding);
-      setFindings((prev) => [normalized, ...prev]);
+
+      setFindings((prev) =>
+        mergeById(prev, [normalized], "finding_id")
+      );
+
       notify(`New ${normalized.severity_hint} severity finding detected!`, 5000);
     },
     [notify]
@@ -96,8 +120,13 @@ export default function DashboardPage() {
   const handleNewIncident = useCallback(
     (incident: Incident) => {
       const normalized = normalizeIncident(incident);
-      setIncidents((prev) => [normalized, ...prev]);
-      setSelectedIncident((prev) => prev ?? normalized);
+
+      setIncidents((prev) =>
+        mergeById(prev, [normalized], "incident_id")
+      );
+
+      setSelectedIncident(normalized);
+
       notify(`New ${normalized.severity} incident: ${normalized.title}`, 5000);
     },
     [notify]
@@ -176,13 +205,31 @@ export default function DashboardPage() {
     try {
       notify("Starting security scan...", 3000);
 
-      await apiClient.triggerScan(["./mock-repos"], true, true);
+      const result = await apiClient.triggerScan(["./mock-repos"], true, true);
 
-      notify("Scan completed. Refreshing dashboard...", 3000);
+      /**
+       * If WebSocket is connected, the backend broadcast will update the UI.
+       * If WebSocket is disconnected, use the REST response as fallback.
+       */
+      if (!isConnected) {
+        setFindings((prev) =>
+          mergeById(prev, result.new_findings, "finding_id")
+        );
 
-      window.setTimeout(() => {
-        loadData();
-      }, 800);
+        setIncidents((prev) =>
+          mergeById(prev, result.new_incidents, "incident_id")
+        );
+
+        if (result.new_incidents.length > 0) {
+          setSelectedIncident(result.new_incidents[0]);
+        }
+
+        if (result.bob_analysis) {
+          setBobOutput(result.bob_analysis);
+        }
+      }
+
+      notify(`Scan completed: ${result.run_id}`, 3000);
     } catch (error) {
       console.error("Failed to trigger scan:", error);
       notify("Failed to start scan. Check backend connection.", 5000);
@@ -212,7 +259,7 @@ export default function DashboardPage() {
     return (
       <main style={pageStyle}>
         <div style={{ paddingTop: "3rem", color: "#8b949e" }}>
-          Loading Bob Sentinel Dashboard...
+          Loading Jeff Dashboard...
         </div>
       </main>
     );
@@ -230,7 +277,7 @@ export default function DashboardPage() {
       <header style={headerStyle}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
           <span style={{ fontSize: "1.8rem" }}>🛡️</span>
-          <h1 style={{ margin: 0, color: "#58a6ff" }}>Bob Sentinel</h1>
+          <h1 style={{ margin: 0, color: "#58a6ff" }}>Jeff</h1>
           <span
             style={{
               backgroundColor: "#21262d",
