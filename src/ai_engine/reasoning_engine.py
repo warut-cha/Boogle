@@ -1,6 +1,6 @@
 """
 AI Reasoning Engine
-Hybrid AI engine combining local ML models with optional IBM Watson integration
+Integrates IBM Bob (watsonx.ai) for AI-powered security analysis
 """
 
 from typing import List, Dict, Any, Optional
@@ -10,60 +10,89 @@ logger = logging.getLogger(__name__)
 
 
 class ReasoningEngine:
-    """AI reasoning engine for enhanced security analysis"""
+    """AI reasoning engine powered by IBM Bob for enhanced security analysis"""
     
     def __init__(self, config: Dict[str, Any]):
         """Initialize reasoning engine"""
         self.config = config
         self.local_models_enabled = config.get('local_models', {}).get('enabled', True)
-        self.ibm_watson_enabled = config.get('ibm_watson', {}).get('enabled', False)
+        self.bob_enabled = config.get('bob', {}).get('enabled', True)
         
-        if self.ibm_watson_enabled:
-            self._init_ibm_watson()
+        # Initialize Bob client
+        self.bob_client = None
+        if self.bob_enabled:
+            self._init_bob_client()
+        
+        # Initialize vector memory
+        self.vector_memory = None
+        if config.get('vector_memory', {}).get('enabled', True):
+            self._init_vector_memory()
     
-    def _init_ibm_watson(self):
-        """Initialize IBM Watson connection"""
+    def _init_bob_client(self):
+        """Initialize IBM Bob client"""
         try:
-            # Placeholder for IBM Watson SDK initialization
-            # from ibm_watson import AssistantV2
-            # from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
+            from .bob_client import BobClient
             
-            api_key = self.config.get('ibm_watson', {}).get('api_key')
-            url = self.config.get('ibm_watson', {}).get('url')
+            bob_config = self.config.get('bob', {})
+            self.bob_client = BobClient(bob_config)
             
-            if api_key and url:
-                logger.info("IBM Watson integration initialized")
+            health = self.bob_client.health_check()
+            if health.get('enabled'):
+                logger.info("IBM Bob client initialized successfully")
             else:
-                logger.warning("IBM Watson credentials not configured")
-                self.ibm_watson_enabled = False
+                logger.warning("IBM Bob client not fully enabled")
+                self.bob_enabled = False
         except Exception as e:
-            logger.error(f"Failed to initialize IBM Watson: {str(e)}")
-            self.ibm_watson_enabled = False
+            logger.error(f"Failed to initialize IBM Bob client: {str(e)}")
+            self.bob_enabled = False
+            self.bob_client = None
+    
+    def _init_vector_memory(self):
+        """Initialize vector memory"""
+        try:
+            from .vector_memory import VectorMemory
+            
+            vector_config = self.config.get('vector_memory', {})
+            self.vector_memory = VectorMemory(vector_config)
+            
+            stats = self.vector_memory.get_statistics()
+            logger.info(f"Vector memory initialized: {stats.get('total_entries', 0)} entries")
+        except Exception as e:
+            logger.error(f"Failed to initialize vector memory: {str(e)}")
+            self.vector_memory = None
     
     def enhance_analysis(self, incidents: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Enhance incident analysis with AI reasoning
+        Enhance incident analysis with AI reasoning using IBM Bob
         
         Args:
             incidents: List of incidents
             
         Returns:
-            Enhanced incidents with AI insights
+            Enhanced incidents with Bob AI analysis
         """
-        logger.info(f"Enhancing analysis for {len(incidents)} incidents")
+        logger.info(f"Enhancing analysis for {len(incidents)} incidents with IBM Bob")
         
         enhanced_incidents = []
         
         for incident in incidents:
             enhanced = incident.copy()
             
-            # Add AI insights
+            # Get Bob analysis
+            if self.bob_enabled and self.bob_client:
+                bob_output = self._get_bob_analysis(incident)
+                enhanced['bob_analysis'] = bob_output
+                
+                # Store in vector memory for future reference
+                if self.vector_memory and bob_output.get('ai_memory'):
+                    try:
+                        self.vector_memory.add_incident_memory(incident, bob_output['ai_memory'])
+                    except Exception as e:
+                        logger.warning(f"Failed to store in vector memory: {str(e)}")
+            
+            # Add local insights as fallback
             if self.local_models_enabled:
                 enhanced['ai_insights'] = self._generate_local_insights(incident)
-            
-            # Add IBM Watson analysis if enabled
-            if self.ibm_watson_enabled:
-                enhanced['watson_analysis'] = self._get_watson_analysis(incident)
             
             # Add risk assessment
             enhanced['risk_assessment'] = self._assess_risk(incident)
@@ -74,6 +103,52 @@ class ReasoningEngine:
             enhanced_incidents.append(enhanced)
         
         return enhanced_incidents
+    
+    def _get_bob_analysis(self, incident: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Get analysis from IBM Bob
+        
+        Args:
+            incident: Incident to analyze
+            
+        Returns:
+            Bob output with analysis, fixes, tests, report, etc.
+        """
+        try:
+            # Search for similar past incidents
+            related_memory = []
+            if self.vector_memory:
+                similar = self.vector_memory.search_similar_incidents(incident, n_results=3)
+                related_memory = similar
+            
+            # Build Bob input
+            bob_input = {
+                'incident': incident,
+                'attack_path': incident.get('attack_path', {}),
+                'confidence': {
+                    'score': incident.get('confidence_score', 0.75),
+                    'reasons': incident.get('confidence_reasons', []),
+                    'limitations': incident.get('confidence_limitations', [])
+                },
+                'related_memory': related_memory,
+                'requested_outputs': [
+                    'attack_explanation',
+                    'target_analysis',
+                    'fix_plan',
+                    'security_tests',
+                    'incident_report',
+                    'ai_memory',
+                    'pr_draft'
+                ]
+            }
+            
+            # Get Bob analysis
+            bob_output = self.bob_client.analyze_incident(bob_input)
+            
+            return bob_output
+        except Exception as e:
+            logger.error(f"Failed to get Bob analysis: {str(e)}")
+            return {}
     
     def _generate_local_insights(self, incident: Dict[str, Any]) -> Dict[str, Any]:
         """Generate insights using local ML models"""
@@ -89,19 +164,16 @@ class ReasoningEngine:
         
         return insights
     
-    def _get_watson_analysis(self, incident: Dict[str, Any]) -> Dict[str, Any]:
-        """Get analysis from IBM Watson (placeholder)"""
-        # Placeholder for IBM Watson API call
-        return {
-            'confidence': 0.85,
-            'analysis': 'IBM Watson analysis would appear here',
-            'recommendations': []
-        }
     
     def _assess_risk(self, incident: Dict[str, Any]) -> Dict[str, Any]:
         """Assess overall risk"""
-        severity_level = incident.get('severity', {}).get('level', 3)
-        finding_count = incident.get('finding_count', 0)
+        severity = incident.get('severity', 3)
+        if isinstance(severity, dict):
+            severity_level = severity.get('level', 3)
+        else:
+            severity_level = incident.get('severity_level', 3)
+        
+        finding_count = incident.get('finding_count', len(incident.get('findings', [])))
         correlation_type = incident.get('correlation_type', 'none')
         
         # Calculate risk score
@@ -177,7 +249,11 @@ class ReasoningEngine:
     
     def _calculate_priority(self, incident: Dict[str, Any]) -> str:
         """Calculate remediation priority"""
-        severity_level = incident.get('severity', {}).get('level', 3)
+        severity = incident.get('severity', 3)
+        if isinstance(severity, dict):
+            severity_level = severity.get('level', 3)
+        else:
+            severity_level = incident.get('severity_level', 3)
         
         if severity_level >= 5:
             return 'P0 - Immediate (within 1 hour)'
