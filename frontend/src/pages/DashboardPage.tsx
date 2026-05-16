@@ -10,13 +10,10 @@ import ReportViewer from '../components/ReportViewer';
 import MemoryViewer from '../components/MemoryViewer';
 import PRDraftViewer from '../components/PRDraftViewer';
 import ScanInput from '../components/ScanInput';
-
-const SEVERITY_COLORS: Record<string, string> = {
-  critical: '#f85149',
-  high: '#e3b341',
-};
+import { SEVERITY_COLORS } from '../utils/severity';
 
 export default function DashboardPage() {
+  const [mode, setMode] = useState<'demo' | 'live'>('demo');
   const [selectedScenarioId, setSelectedScenarioId] = useState('inc-001');
   const [findings, setFindings] = useState<Finding[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -26,16 +23,18 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'findings' | 'incident' | 'analysis'>('overview');
 
   useEffect(() => {
-    loadData(selectedScenarioId);
-  }, [selectedScenarioId]);
+    if (mode === 'demo') {
+      loadData(selectedScenarioId);
+    }
+  }, [selectedScenarioId, mode]);
 
   const loadData = async (scenarioId: string) => {
     try {
       setLoading(true);
       setBobOutput(null);
       const [findingsData, incidentsData] = await Promise.all([
-        apiClient.getFindings(scenarioId),
-        apiClient.getIncidents(scenarioId)
+        apiClient.getFindings(scenarioId, true),
+        apiClient.getIncidents(scenarioId, true)
       ]);
 
       setFindings(findingsData);
@@ -43,7 +42,7 @@ export default function DashboardPage() {
 
       if (incidentsData.length > 0) {
         setSelectedIncident(incidentsData[0]);
-        const bobData = await apiClient.getBobAnalysis(incidentsData[0].incident_id, scenarioId);
+        const bobData = await apiClient.getBobAnalysis(incidentsData[0].incident_id, scenarioId, true);
         setBobOutput(bobData);
       }
     } catch (error) {
@@ -53,9 +52,56 @@ export default function DashboardPage() {
     }
   };
 
+  const loadLiveData = async () => {
+    try {
+      setLoading(true);
+      const [findingsData, incidentsData] = await Promise.all([
+        apiClient.getFindings('', false),
+        apiClient.getIncidents('', false)
+      ]);
+
+      setFindings(findingsData);
+      setIncidents(incidentsData);
+
+      if (incidentsData.length > 0) {
+        setSelectedIncident(incidentsData[0]);
+        const bobData = await apiClient.getBobAnalysis(incidentsData[0].incident_id, '', false);
+        setBobOutput(bobData);
+      } else {
+        setSelectedIncident(null);
+        setBobOutput(null);
+      }
+    } catch (error) {
+      console.error('Error loading live data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleScenarioSwitch = (scenarioId: string) => {
     setSelectedScenarioId(scenarioId);
     setActiveTab('overview');
+  };
+
+  const handleModeSwitch = (newMode: 'demo' | 'live') => {
+    setMode(newMode);
+    // Reset all data when switching modes
+    setFindings([]);
+    setIncidents([]);
+    setSelectedIncident(null);
+    setBobOutput(null);
+    setActiveTab('overview');
+    
+    if (newMode === 'demo') {
+      loadData(selectedScenarioId);
+    } else {
+      setLoading(false);
+    }
+  };
+
+  const handleScanComplete = (result: { findings_count: number; incidents_count: number }) => {
+    // After scan completes, load the fresh data from backend
+    loadLiveData();
   };
 
   if (loading) {
@@ -86,10 +132,7 @@ export default function DashboardPage() {
   return (
     <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto' }}>
 
-      {/* Scan Input */}
-      <ScanInput onScanComplete={() => loadData(selectedScenarioId)} />
-
-      {/* Scenario Selector */}
+      {/* Mode Toggle */}
       <div style={{
         marginBottom: '2rem',
         padding: '1.25rem',
@@ -105,8 +148,108 @@ export default function DashboardPage() {
           letterSpacing: '0.08em',
           marginBottom: '0.875rem'
         }}>
-          Demo Scenario
+          Mode Selection
         </div>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button
+            onClick={() => handleModeSwitch('demo')}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              padding: '0.75rem 1.25rem',
+              backgroundColor: mode === 'demo' ? '#1c2128' : 'transparent',
+              border: `1px solid ${mode === 'demo' ? '#58a6ff' : '#30363d'}`,
+              borderRadius: '6px',
+              color: mode === 'demo' ? '#e6edf3' : '#8b949e',
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+              minWidth: '200px',
+              textAlign: 'left'
+            }}
+            onMouseOver={(e) => {
+              if (mode !== 'demo') {
+                e.currentTarget.style.borderColor = '#58a6ff';
+                e.currentTarget.style.color = '#e6edf3';
+              }
+            }}
+            onMouseOut={(e) => {
+              if (mode !== 'demo') {
+                e.currentTarget.style.borderColor = '#30363d';
+                e.currentTarget.style.color = '#8b949e';
+              }
+            }}
+          >
+            <span style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+              Demo Mode
+            </span>
+            <span style={{ fontSize: '0.75rem', color: '#6e7681' }}>
+              Predefined scenarios
+            </span>
+          </button>
+          <button
+            onClick={() => handleModeSwitch('live')}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              padding: '0.75rem 1.25rem',
+              backgroundColor: mode === 'live' ? '#1c2128' : 'transparent',
+              border: `1px solid ${mode === 'live' ? '#58a6ff' : '#30363d'}`,
+              borderRadius: '6px',
+              color: mode === 'live' ? '#e6edf3' : '#8b949e',
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+              minWidth: '200px',
+              textAlign: 'left'
+            }}
+            onMouseOver={(e) => {
+              if (mode !== 'live') {
+                e.currentTarget.style.borderColor = '#58a6ff';
+                e.currentTarget.style.color = '#e6edf3';
+              }
+            }}
+            onMouseOut={(e) => {
+              if (mode !== 'live') {
+                e.currentTarget.style.borderColor = '#30363d';
+                e.currentTarget.style.color = '#8b949e';
+              }
+            }}
+          >
+            <span style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+              Live Scan
+            </span>
+            <span style={{ fontSize: '0.75rem', color: '#6e7681' }}>
+              Scan real repositories
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Scan Input - Only show in Live mode */}
+      {mode === 'live' && (
+        <ScanInput onScanComplete={handleScanComplete} />
+      )}
+
+      {/* Scenario Selector - Only show in Demo mode */}
+      {mode === 'demo' && (
+        <div style={{
+          marginBottom: '2rem',
+          padding: '1.25rem',
+          backgroundColor: '#161b22',
+          border: '1px solid #30363d',
+          borderRadius: '8px'
+        }}>
+          <div style={{
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            color: '#8b949e',
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            marginBottom: '0.875rem'
+          }}>
+            Demo Scenario
+          </div>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           {SCENARIOS.map((s) => {
             const isActive = selectedScenarioId === s.id;
@@ -170,7 +313,8 @@ export default function DashboardPage() {
             );
           })}
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Navigation Tabs */}
       <div style={{

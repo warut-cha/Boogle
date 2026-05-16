@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { apiClient } from '../api/client';
 
 interface ScanInputProps {
-  onScanComplete: () => void;
+  onScanComplete: (result: { findings_count: number; incidents_count: number }) => void;
 }
 
 export default function ScanInput({ onScanComplete }: ScanInputProps) {
@@ -29,7 +29,10 @@ export default function ScanInput({ onScanComplete }: ScanInputProps) {
       });
 
       setScanResult(result);
-      onScanComplete();
+      onScanComplete({
+        findings_count: result.findings_count || 0,
+        incidents_count: result.incidents_count || 0
+      });
     } catch (err: any) {
       setError(err.response?.data?.error || err.message || 'Scan failed');
     } finally {

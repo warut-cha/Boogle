@@ -901,8 +901,9 @@ export const SCENARIOS: ScenarioMeta[] = [
 // ─────────────────────────────────
 
 export const apiClient = {
-  async getFindings(scenarioId = 'inc-001'): Promise<Finding[]> {
-    if (USE_MOCK_DATA) {
+  async getFindings(scenarioId = 'inc-001', useMock?: boolean): Promise<Finding[]> {
+    const shouldUseMock = useMock !== undefined ? useMock : USE_MOCK_DATA;
+    if (shouldUseMock) {
       const s = SCENARIOS.find(x => x.id === scenarioId);
       return Promise.resolve(s?.findings ?? s1Findings);
     }
@@ -910,8 +911,9 @@ export const apiClient = {
     return response.data;
   },
 
-  async getIncidents(scenarioId = 'inc-001'): Promise<Incident[]> {
-    if (USE_MOCK_DATA) {
+  async getIncidents(scenarioId = 'inc-001', useMock?: boolean): Promise<Incident[]> {
+    const shouldUseMock = useMock !== undefined ? useMock : USE_MOCK_DATA;
+    if (shouldUseMock) {
       const s = SCENARIOS.find(x => x.id === scenarioId);
       return Promise.resolve([s?.incident ?? s1Incident]);
     }
@@ -919,8 +921,9 @@ export const apiClient = {
     return response.data;
   },
 
-  async getIncident(id: string, scenarioId = 'inc-001'): Promise<Incident> {
-    if (USE_MOCK_DATA) {
+  async getIncident(id: string, scenarioId = 'inc-001', useMock?: boolean): Promise<Incident> {
+    const shouldUseMock = useMock !== undefined ? useMock : USE_MOCK_DATA;
+    if (shouldUseMock) {
       const s = SCENARIOS.find(x => x.id === scenarioId);
       return Promise.resolve(s?.incident ?? s1Incident);
     }
@@ -928,8 +931,9 @@ export const apiClient = {
     return response.data;
   },
 
-  async getBobAnalysis(incidentId: string, scenarioId = 'inc-001'): Promise<BobOutput> {
-    if (USE_MOCK_DATA) {
+  async getBobAnalysis(incidentId: string, scenarioId = 'inc-001', useMock?: boolean): Promise<BobOutput> {
+    const shouldUseMock = useMock !== undefined ? useMock : USE_MOCK_DATA;
+    if (shouldUseMock) {
       const s = SCENARIOS.find(x => x.id === scenarioId);
       return Promise.resolve(s?.bobOutput ?? s1BobOutput);
     }

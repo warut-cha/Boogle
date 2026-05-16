@@ -1,19 +1,10 @@
 import { Brain, Target, Shield, Wrench, FileCode } from 'lucide-react';
 import type { BobOutput } from '../api/types';
+import { getSeverityColor } from '../utils/severity';
 
 interface BobAnalysisProps {
   bobOutput: BobOutput | null;
 }
-
-const getSeverityColor = (severity: string): string => {
-  switch (severity) {
-    case 'critical': return '#f85149';
-    case 'high': return '#ff7b72';
-    case 'medium': return '#d29922';
-    case 'low': return '#58a6ff';
-    default: return '#8b949e';
-  }
-};
 
 const getFixTypeIcon = (type: string) => {
   switch (type) {

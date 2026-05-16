@@ -1,19 +1,10 @@
 import { AlertTriangle, CheckCircle, XCircle, TrendingUp } from 'lucide-react';
 import type { Incident } from '../api/types';
+import { getSeverityColor } from '../utils/severity';
 
 interface IncidentDetailProps {
   incident: Incident;
 }
-
-const getSeverityColor = (severity: string): string => {
-  switch (severity) {
-    case 'critical': return '#f85149';
-    case 'high': return '#ff7b72';
-    case 'medium': return '#d29922';
-    case 'low': return '#58a6ff';
-    default: return '#8b949e';
-  }
-};
 
 export default function IncidentDetail({ incident }: IncidentDetailProps) {
   const confidencePercentage = Math.round(incident.confidence_score * 100);

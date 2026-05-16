@@ -1,19 +1,10 @@
 import { AlertCircle, Shield, Database, Activity, Server, FileText } from 'lucide-react';
 import type { Finding } from '../api/types';
+import { getSeverityColor } from '../utils/severity';
 
 interface FindingsTableProps {
   findings: Finding[];
 }
-
-const getSeverityColor = (severity: string): string => {
-  switch (severity) {
-    case 'critical': return '#f85149';
-    case 'high': return '#ff7b72';
-    case 'medium': return '#d29922';
-    case 'low': return '#58a6ff';
-    default: return '#8b949e';
-  }
-};
 
 const getCategoryIcon = (category: string) => {
   switch (category) {
