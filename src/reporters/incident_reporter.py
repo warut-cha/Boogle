@@ -1,6 +1,7 @@
 """
 Incident Reporter
 Generates professional incident reports in multiple formats (Markdown, JSON, HTML)
+Integrates with IBM Bob for AI-generated reports
 """
 
 import json
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class IncidentReporter:
-    """Generates incident reports in multiple formats"""
+    """Generates incident reports in multiple formats with Bob AI integration"""
     
     def __init__(self, config: Dict[str, Any]):
         """
@@ -23,10 +24,11 @@ class IncidentReporter:
             config: Reporting configuration
         """
         self.config = config
-        self.output_dir = Path(config.get('output_directory', './output'))
+        self.output_dir = Path(config.get('output_directory', './generated_reports'))
         self.formats = config.get('formats', ['markdown', 'json'])
         self.include_code_snippets = config.get('include_code_snippets', True)
         self.max_snippet_lines = config.get('max_snippet_lines', 20)
+        self.use_bob_reports = config.get('use_bob_reports', True)
         
         # Create output directory
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -119,7 +121,11 @@ class IncidentReporter:
         
         severity_counts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
         for incident in incidents:
-            level = incident.get('severity', {}).get('level', 3)
+            severity = incident.get('severity', 3)
+            if isinstance(severity, dict):
+                level = severity.get('level', 3)
+            else:
+                level = incident.get('severity_level', 3)
             severity_counts[level] += 1
         
         content.append("### Severity Distribution\n")
@@ -130,25 +136,30 @@ class IncidentReporter:
         content.append(f"- ⚪ **Informational (Level 1):** {severity_counts[1]}\n")
         
         # Critical Incidents
-        critical_incidents = [i for i in incidents if i.get('severity', {}).get('level', 0) == 5]
+        def get_severity_level(inc):
+            sev = inc.get('severity', 3)
+            if isinstance(sev, dict):
+                return sev.get('level', 3)
+            return inc.get('severity_level', 3)
+        
+        critical_incidents = [i for i in incidents if get_severity_level(i) == 5]
         if critical_incidents:
             content.append("## 🚨 Critical Incidents\n")
             for incident in critical_incidents:
                 content.append(f"### {incident.get('title', 'Untitled')}")
-                content.append(f"- **ID:** {incident.get('id')}")
-                content.append(f"- **Type:** {incident.get('type')}")
-                content.append(f"- **Confidence:** {incident.get('severity', {}).get('confidence', 0):.2f}")
-                content.append(f"- **Description:** {incident.get('description', 'No description')}\n")
+                content.append(f"- **ID:** {incident.get('incident_id', incident.get('id', 'UNKNOWN'))}")
+                content.append(f"- **Confidence:** {incident.get('confidence_score', 0.75):.2f}")
+                content.append(f"- **Description:** {incident.get('title', 'No description')}\n")
         
         # High Priority Incidents
-        high_incidents = [i for i in incidents if i.get('severity', {}).get('level', 0) == 4]
+        high_incidents = [i for i in incidents if get_severity_level(i) == 4]
         if high_incidents:
             content.append("## ⚠️ High Priority Incidents\n")
             for incident in high_incidents:
                 content.append(f"### {incident.get('title', 'Untitled')}")
-                content.append(f"- **ID:** {incident.get('id')}")
-                content.append(f"- **Findings:** {incident.get('finding_count', 0)}")
-                content.append(f"- **Description:** {incident.get('description', 'No description')}\n")
+                content.append(f"- **ID:** {incident.get('incident_id', incident.get('id', 'UNKNOWN'))}")
+                content.append(f"- **Findings:** {len(incident.get('findings', []))}")
+                content.append(f"- **Description:** {incident.get('title', 'No description')}\n")
         
         # Recommendations
         content.append("## Recommendations\n")
@@ -168,17 +179,40 @@ class IncidentReporter:
         content.append("   - Regular security audits\n")
         
         # Write to file
-        with open(path, 'w') as f:
+        with open(path, 'w', encoding='utf-8') as f:
             f.write('\n'.join(content))
         
         logger.info(f"Generated Markdown summary: {path}")
     
     def _write_markdown_incident(self, incident: Dict[str, Any], path: Path):
-        """Write incident report in Markdown format"""
+        """Write incident report in Markdown format with Bob integration"""
+        # Check if Bob generated a report
+        bob_analysis = incident.get('bob_analysis', {})
+        bob_report = bob_analysis.get('incident_report', '')
+        
+        if self.use_bob_reports and bob_report and len(bob_report) > 100:
+            # Use Bob's generated report
+            content = bob_report
+            
+            # Append additional technical details if needed
+            content += "\n\n---\n\n## Technical Details\n\n"
+            content += self._generate_technical_details(incident)
+        else:
+            # Use traditional report format
+            content = self._generate_traditional_report(incident)
+        
+        # Write to file
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        
+        logger.info(f"Generated Markdown incident report: {path}")
+    
+    def _generate_traditional_report(self, incident: Dict[str, Any]) -> str:
+        """Generate traditional incident report format"""
         content = []
         
         # Header
-        incident_id = incident.get('id', 'UNKNOWN')
+        incident_id = incident.get('incident_id', incident.get('id', 'UNKNOWN'))
         title = incident.get('title', 'Untitled Incident')
         
         content.append(f"# Security Incident Report: {incident_id}")
@@ -187,14 +221,19 @@ class IncidentReporter:
         # Metadata
         content.append("### Incident Details\n")
         content.append(f"- **Incident ID:** {incident_id}")
-        content.append(f"- **Timestamp:** {incident.get('timestamp', 'Unknown')}")
+        content.append(f"- **Timestamp:** {incident.get('timestamp', datetime.now().isoformat())}")
         content.append(f"- **Type:** {incident.get('type', 'Unknown')}")
         content.append(f"- **Correlation:** {incident.get('correlation_type', 'none')}")
         
-        severity = incident.get('severity', {})
-        level = severity.get('level', 3)
-        level_name = severity.get('level_name', 'Medium')
-        confidence = severity.get('confidence', 0.75)
+        severity = incident.get('severity', 'medium')
+        if isinstance(severity, dict):
+            level = severity.get('level', 3)
+            level_name = severity.get('level_name', 'Medium')
+            confidence = severity.get('confidence', 0.75)
+        else:
+            level = incident.get('severity_level', 3)
+            level_name = severity.title()
+            confidence = incident.get('confidence_score', 0.75)
         
         severity_emoji = {5: '🔴', 4: '🟠', 3: '🟡', 2: '🔵', 1: '⚪'}
         content.append(f"- **Severity:** {severity_emoji.get(level, '⚪')} Level {level} ({level_name})")
@@ -202,35 +241,43 @@ class IncidentReporter:
         
         # Description
         content.append("### Description\n")
-        content.append(incident.get('description', 'No description available') + '\n')
+        content.append(incident.get('description', incident.get('title', 'No description available')) + '\n')
         
         # Findings
         findings = incident.get('findings', [])
         content.append(f"### Findings ({len(findings)})\n")
         
         for i, finding in enumerate(findings, 1):
-            content.append(f"#### Finding {i}: {finding.get('name', 'Unnamed')}\n")
-            content.append(f"- **Type:** {finding.get('type')}")
-            content.append(f"- **Severity:** {finding.get('severity')}")
+            finding_type = finding.get('finding_type', finding.get('type', 'unknown'))
+            severity_hint = finding.get('severity_hint', finding.get('severity', 'medium'))
+            file_path = finding.get('file', finding.get('file_path', 'unknown'))
             
-            if 'file_path' in finding:
-                content.append(f"- **Location:** {finding['file_path']}")
-                if 'line_number' in finding:
-                    content.append(f"  - Line {finding['line_number']}")
+            content.append(f"#### Finding {i}: {finding_type}\n")
+            content.append(f"- **Type:** {finding_type}")
+            content.append(f"- **Severity:** {severity_hint}")
+            content.append(f"- **Location:** {file_path}")
             
-            content.append(f"- **Description:** {finding.get('description', 'No description')}")
+            if 'line' in finding or 'line_number' in finding:
+                line = finding.get('line', finding.get('line_number'))
+                content.append(f"  - Line {line}")
+            
+            evidence = finding.get('evidence', finding.get('description', 'No details'))
+            content.append(f"- **Evidence:** {evidence}")
             
             if 'remediation' in finding:
                 content.append(f"- **Remediation:** {finding['remediation']}")
             
             content.append("")
         
-        # Evidence
-        content.append("### Evidence\n")
-        evidence = incident.get('evidence', {})
-        for key, value in evidence.items():
-            content.append(f"- **{key}:** {value}")
-        content.append("")
+        # Bob's recommended fixes if available
+        bob_analysis = incident.get('bob_analysis', {})
+        if bob_analysis and bob_analysis.get('recommended_fixes'):
+            content.append("### Recommended Fixes (AI-Generated)\n")
+            for fix in bob_analysis['recommended_fixes']:
+                fix_type = fix.get('type', 'fix').replace('_', ' ').title()
+                description = fix.get('description', 'No description')
+                content.append(f"- **{fix_type}:** {description}")
+            content.append("")
         
         # Remediation
         content.append("### Recommended Actions\n")
@@ -246,20 +293,43 @@ class IncidentReporter:
             content.append("2. Plan remediation timeline")
             content.append("3. Update security policies\n")
         
-        content.append("#### Code Fixes\n")
-        content.append("See individual finding remediations above.\n")
-        
         content.append("#### Prevention\n")
         content.append("1. Implement security tests")
         content.append("2. Add to CI/CD pipeline")
         content.append("3. Update security training")
         content.append("4. Review similar code patterns\n")
         
-        # Write to file
-        with open(path, 'w') as f:
-            f.write('\n'.join(content))
+        content.append("---\n")
+        content.append("*Generated by IBM Bob Sentinel*\n")
         
-        logger.info(f"Generated Markdown incident report: {path}")
+        return '\n'.join(content)
+    
+    def _generate_technical_details(self, incident: Dict[str, Any]) -> str:
+        """Generate technical details section"""
+        details = []
+        
+        # Attack path if available
+        attack_path = incident.get('attack_path', {})
+        if attack_path and attack_path.get('nodes'):
+            details.append("### Attack Path\n")
+            for node in attack_path['nodes']:
+                details.append(f"- **{node.get('label', 'Unknown')}** ({node.get('type', 'unknown')})")
+            details.append("")
+        
+        # Confidence details
+        if incident.get('confidence_reasons'):
+            details.append("### Confidence Factors\n")
+            for reason in incident['confidence_reasons']:
+                details.append(f"- ✓ {reason}")
+            details.append("")
+        
+        if incident.get('confidence_limitations'):
+            details.append("### Confidence Limitations\n")
+            for limitation in incident['confidence_limitations']:
+                details.append(f"- ⚠ {limitation}")
+            details.append("")
+        
+        return '\n'.join(details)
     
     def _write_json_summary(self, incidents: List[Dict[str, Any]], path: Path):
         """Write summary in JSON format"""
@@ -370,7 +440,11 @@ class IncidentReporter:
         distribution = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
         
         for incident in incidents:
-            level = incident.get('severity', {}).get('level', 3)
+            severity = incident.get('severity', 3)
+            if isinstance(severity, dict):
+                level = severity.get('level', 3)
+            else:
+                level = incident.get('severity_level', 3)
             distribution[level] += 1
         
         return distribution
