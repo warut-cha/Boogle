@@ -60,7 +60,7 @@ export default function OverviewCards({ incidents, findings, bobAnalysisGenerate
 
   const affectedRepos = new Set(incidents.flatMap(i => i.affected_repos)).size;
 
-  const aiMemories = incidents.reduce((sum, i) => sum + i.related_memory.length, 0);
+  // const aiMemories = incidents.reduce((sum, i) => sum + i.related_memory.length, 0);
 
   return (
     <div style={{

@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { apiClient, mockIncident, mockBobOutput } from '../api/client';
+import { useState, useEffect, useCallback } from 'react';
+import { apiClient } from '../api/client';
 import type { Incident, Finding, BobOutput } from '../api/types';
+import { useRealtimeMonitoring } from '../hooks/useRealtimeMonitoring';
 import OverviewCards from '../components/OverviewCards';
 import FindingsTable from '../components/FindingsTable';
 import IncidentDetail from '../components/IncidentDetail';
@@ -9,6 +10,7 @@ import BobAnalysis from '../components/BobAnalysis';
 import ReportViewer from '../components/ReportViewer';
 import MemoryViewer from '../components/MemoryViewer';
 import PRDraftViewer from '../components/PRDraftViewer';
+import { Wifi, WifiOff, Bell } from 'lucide-react';
 
 export default function DashboardPage() {
   const [findings, setFindings] = useState<Finding[]>([]);
@@ -17,6 +19,36 @@ export default function DashboardPage() {
   const [bobOutput, setBobOutput] = useState<BobOutput | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'findings' | 'incident' | 'analysis'>('overview');
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState('');
+
+  // Real-time monitoring callbacks
+  const handleNewFinding = useCallback((finding: Finding) => {
+    setFindings(prev => [finding, ...prev]);
+    setNotificationMessage(`New ${finding.severity_hint} severity finding detected!`);
+    setShowNotification(true);
+    setTimeout(() => setShowNotification(false), 5000);
+  }, []);
+
+  const handleNewIncident = useCallback((incident: Incident) => {
+    setIncidents(prev => [incident, ...prev]);
+    // Set as selected incident if none is selected
+    setSelectedIncident(prev => prev || incident);
+    setNotificationMessage(`New ${incident.severity} incident: ${incident.title}`);
+    setShowNotification(true);
+    setTimeout(() => setShowNotification(false), 5000);
+  }, []);
+
+  const handleBobAnalysis = useCallback((incidentId: string, analysis: BobOutput) => {
+    setBobOutput(analysis);
+    setNotificationMessage('Bob AI analysis completed!');
+    setShowNotification(true);
+    setTimeout(() => setShowNotification(false), 5000);
+  }, []);
+
+  // Initialize real-time monitoring
+  const { isConnected, newFindings, newIncidents, clearNewFindings, clearNewIncidents, reconnect } =
+    useRealtimeMonitoring(handleNewFinding, handleNewIncident, handleBobAnalysis);
 
   useEffect(() => {
     loadData();
@@ -71,8 +103,149 @@ export default function DashboardPage() {
     );
   }
 
+  const handleTriggerScan = async () => {
+    try {
+      setNotificationMessage('Starting security scan...');
+      setShowNotification(true);
+      
+      const result = await apiClient.triggerScan(['./mock-repos'], true, true);
+      
+      setNotificationMessage('Scan started! Watch for real-time updates...');
+      setTimeout(() => setShowNotification(false), 3000);
+      
+      console.log('Scan triggered:', result);
+    } catch (error) {
+      console.error('Failed to trigger scan:', error);
+      setNotificationMessage('Failed to start scan. Check backend connection.');
+      setTimeout(() => setShowNotification(false), 5000);
+    }
+  };
+
   return (
     <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto' }}>
+      {/* Real-time Status Bar */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: '1rem',
+        padding: '0.75rem 1rem',
+        backgroundColor: '#161b22',
+        border: '1px solid #30363d',
+        borderRadius: '8px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {isConnected ? (
+              <>
+                <Wifi size={16} style={{ color: '#56d364' }} />
+                <span style={{ fontSize: '0.875rem', color: '#56d364', fontWeight: 500 }}>
+                  Real-time Monitoring Active
+                </span>
+              </>
+            ) : (
+              <>
+                <WifiOff size={16} style={{ color: '#f85149' }} />
+                <span style={{ fontSize: '0.875rem', color: '#f85149', fontWeight: 500 }}>
+                  Disconnected
+                </span>
+                <button
+                  onClick={reconnect}
+                  style={{
+                    padding: '0.25rem 0.75rem',
+                    backgroundColor: '#21262d',
+                    border: '1px solid #30363d',
+                    borderRadius: '4px',
+                    color: '#58a6ff',
+                    fontSize: '0.75rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Reconnect
+                </button>
+              </>
+            )}
+          </div>
+          {(newFindings.length > 0 || newIncidents.length > 0) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Bell size={16} style={{ color: '#d29922' }} />
+              <span style={{ fontSize: '0.875rem', color: '#d29922' }}>
+                {newFindings.length > 0 && `${newFindings.length} new finding${newFindings.length > 1 ? 's' : ''}`}
+                {newFindings.length > 0 && newIncidents.length > 0 && ', '}
+                {newIncidents.length > 0 && `${newIncidents.length} new incident${newIncidents.length > 1 ? 's' : ''}`}
+              </span>
+              <button
+                onClick={() => {
+                  clearNewFindings();
+                  clearNewIncidents();
+                }}
+                style={{
+                  padding: '0.25rem 0.75rem',
+                  backgroundColor: '#21262d',
+                  border: '1px solid #30363d',
+                  borderRadius: '4px',
+                  color: '#8b949e',
+                  fontSize: '0.75rem',
+                  cursor: 'pointer'
+                }}
+              >
+                Clear
+              </button>
+            </div>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <button
+            onClick={handleTriggerScan}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#238636',
+              border: 'none',
+              borderRadius: '6px',
+              color: '#ffffff',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2ea043'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#238636'}
+          >
+            <span>🔍</span>
+            Run Security Scan
+          </button>
+          <div style={{ fontSize: '0.75rem', color: '#8b949e' }}>
+            Last updated: {new Date().toLocaleTimeString()}
+          </div>
+        </div>
+      </div>
+
+      {/* Notification Toast */}
+      {showNotification && (
+        <div style={{
+          position: 'fixed',
+          top: '2rem',
+          right: '2rem',
+          padding: '1rem 1.5rem',
+          backgroundColor: '#161b22',
+          border: '1px solid #58a6ff',
+          borderRadius: '8px',
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+          zIndex: 1000,
+          animation: 'slideIn 0.3s ease-out'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <Bell size={20} style={{ color: '#58a6ff' }} />
+            <span style={{ color: '#e6edf3', fontSize: '0.875rem' }}>
+              {notificationMessage}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Navigation Tabs */}
       <div style={{
         display: 'flex',
@@ -171,7 +344,7 @@ export default function DashboardPage() {
       )}
 
       {/* Incident Analysis Tab */}
-      {activeTab === 'incident' && selectedIncident && (
+      {activeTab === 'incident' && (
         <div>
           <h2 style={{
             fontSize: '1.5rem',
@@ -182,45 +355,61 @@ export default function DashboardPage() {
             Incident Analysis
           </h2>
           
-          <div style={{ marginBottom: '2rem' }}>
-            <IncidentDetail incident={selectedIncident} />
-          </div>
+          {selectedIncident ? (
+            <>
+              <div style={{ marginBottom: '2rem' }}>
+                <IncidentDetail incident={selectedIncident} />
+              </div>
 
-          <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{
-              fontSize: '1.25rem',
-              fontWeight: 600,
-              color: '#e6edf3',
-              marginBottom: '1rem'
+              <div style={{ marginBottom: '2rem' }}>
+                <h3 style={{
+                  fontSize: '1.25rem',
+                  fontWeight: 600,
+                  color: '#e6edf3',
+                  marginBottom: '1rem'
+                }}>
+                  Attack Path
+                </h3>
+                <AttackPathGraph attackPath={selectedIncident.attack_path} />
+              </div>
+
+              <div style={{ marginBottom: '2rem' }}>
+                <h3 style={{
+                  fontSize: '1.25rem',
+                  fontWeight: 600,
+                  color: '#e6edf3',
+                  marginBottom: '1rem'
+                }}>
+                  Related Findings
+                </h3>
+                <FindingsTable findings={selectedIncident.findings} />
+              </div>
+
+              {selectedIncident.related_memory.length > 0 && (
+                <div>
+                  <h3 style={{
+                    fontSize: '1.25rem',
+                    fontWeight: 600,
+                    color: '#e6edf3',
+                    marginBottom: '1rem'
+                  }}>
+                    AI Memory Patterns
+                  </h3>
+                  <MemoryViewer memories={selectedIncident.related_memory} />
+                </div>
+              )}
+            </>
+          ) : (
+            <div style={{
+              backgroundColor: '#161b22',
+              border: '1px solid #30363d',
+              borderRadius: '8px',
+              padding: '3rem',
+              textAlign: 'center',
+              color: '#8b949e'
             }}>
-              Attack Path
-            </h3>
-            <AttackPathGraph attackPath={selectedIncident.attack_path} />
-          </div>
-
-          <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{
-              fontSize: '1.25rem',
-              fontWeight: 600,
-              color: '#e6edf3',
-              marginBottom: '1rem'
-            }}>
-              Related Findings
-            </h3>
-            <FindingsTable findings={selectedIncident.findings} />
-          </div>
-
-          {selectedIncident.related_memory.length > 0 && (
-            <div>
-              <h3 style={{
-                fontSize: '1.25rem',
-                fontWeight: 600,
-                color: '#e6edf3',
-                marginBottom: '1rem'
-              }}>
-                AI Memory Patterns
-              </h3>
-              <MemoryViewer memories={selectedIncident.related_memory} />
+              <p style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>No incidents detected yet</p>
+              <p style={{ fontSize: '0.875rem' }}>Run a security scan to detect and correlate security incidents</p>
             </div>
           )}
         </div>
@@ -284,11 +473,21 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Add CSS animation for loading spinner */}
+      {/* Add CSS animations */}
       <style>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+        @keyframes slideIn {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
         }
       `}</style>
     </div>

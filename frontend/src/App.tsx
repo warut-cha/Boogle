@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import DashboardPage from './pages/DashboardPage'
 
 function App() {
