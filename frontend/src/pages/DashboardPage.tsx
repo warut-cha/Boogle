@@ -1,497 +1,469 @@
-import { useState, useEffect, useCallback } from 'react';
-import { apiClient } from '../api/client';
-import type { Incident, Finding, BobOutput } from '../api/types';
-import { useRealtimeMonitoring } from '../hooks/useRealtimeMonitoring';
-import OverviewCards from '../components/OverviewCards';
-import FindingsTable from '../components/FindingsTable';
-import IncidentDetail from '../components/IncidentDetail';
-import AttackPathGraph from '../components/AttackPathGraph';
-import BobAnalysis from '../components/BobAnalysis';
-import ReportViewer from '../components/ReportViewer';
-import MemoryViewer from '../components/MemoryViewer';
-import PRDraftViewer from '../components/PRDraftViewer';
-import { Wifi, WifiOff, Bell } from 'lucide-react';
+import type { CSSProperties } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { Bell, Wifi, WifiOff } from "lucide-react";
+import { apiClient } from "../api/client";
+import type { BobOutput, Finding, Incident } from "../api/types";
+import {
+  normalizeBobOutput,
+  normalizeFinding,
+  normalizeIncident,
+} from "../api/normalize";
+import { useRealtimeMonitoring } from "../hooks/useRealtimeMonitoring";
+
+import OverviewCards from "../components/OverviewCards";
+import FindingsTable from "../components/FindingsTable";
+import IncidentDetail from "../components/IncidentDetail";
+import AttackPathGraph from "../components/AttackPathGraph";
+import BobAnalysis from "../components/BobAnalysis";
+import ReportViewer from "../components/ReportViewer";
+import MemoryViewer from "../components/MemoryViewer";
+import PRDraftViewer from "../components/PRDraftViewer";
+
+type ActiveTab = "overview" | "findings" | "incident" | "analysis";
+
+const pageStyle: CSSProperties = {
+  minHeight: "100vh",
+  backgroundColor: "#0f1419",
+  color: "#e6edf3",
+  padding: "0 1.5rem 2rem",
+};
+
+const headerStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  padding: "1rem 0",
+  borderBottom: "1px solid #30363d",
+  marginBottom: "1.5rem",
+};
+
+const statusBarStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  backgroundColor: "#161b22",
+  border: "1px solid #30363d",
+  borderRadius: "8px",
+  padding: "1rem",
+  marginBottom: "1.5rem",
+};
+
+const tabButtonBase: CSSProperties = {
+  padding: "0.75rem 1.5rem",
+  backgroundColor: "transparent",
+  border: "none",
+  borderBottom: "2px solid transparent",
+  color: "#8b949e",
+  fontSize: "0.875rem",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const sectionStyle: CSSProperties = {
+  marginTop: "2rem",
+};
 
 export default function DashboardPage() {
   const [findings, setFindings] = useState<Finding[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [bobOutput, setBobOutput] = useState<BobOutput | null>(null);
+
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'findings' | 'incident' | 'analysis'>('overview');
+  const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
+
   const [showNotification, setShowNotification] = useState(false);
-  const [notificationMessage, setNotificationMessage] = useState('');
+  const [notificationMessage, setNotificationMessage] = useState("");
 
-  // Real-time monitoring callbacks
-  const handleNewFinding = useCallback((finding: Finding) => {
-    setFindings(prev => [finding, ...prev]);
-    setNotificationMessage(`New ${finding.severity_hint} severity finding detected!`);
+  const notify = useCallback((message: string, duration = 4000) => {
+    setNotificationMessage(message);
     setShowNotification(true);
-    setTimeout(() => setShowNotification(false), 5000);
+
+    window.setTimeout(() => {
+      setShowNotification(false);
+    }, duration);
   }, []);
 
-  const handleNewIncident = useCallback((incident: Incident) => {
-    setIncidents(prev => [incident, ...prev]);
-    // Set as selected incident if none is selected
-    setSelectedIncident(prev => prev || incident);
-    setNotificationMessage(`New ${incident.severity} incident: ${incident.title}`);
-    setShowNotification(true);
-    setTimeout(() => setShowNotification(false), 5000);
-  }, []);
+  const handleNewFinding = useCallback(
+    (finding: Finding) => {
+      const normalized = normalizeFinding(finding);
+      setFindings((prev) => [normalized, ...prev]);
+      notify(`New ${normalized.severity_hint} severity finding detected!`, 5000);
+    },
+    [notify]
+  );
 
-  const handleBobAnalysis = useCallback((incidentId: string, analysis: BobOutput) => {
-    setBobOutput(analysis);
-    setNotificationMessage('Bob AI analysis completed!');
-    setShowNotification(true);
-    setTimeout(() => setShowNotification(false), 5000);
-  }, []);
+  const handleNewIncident = useCallback(
+    (incident: Incident) => {
+      const normalized = normalizeIncident(incident);
+      setIncidents((prev) => [normalized, ...prev]);
+      setSelectedIncident((prev) => prev ?? normalized);
+      notify(`New ${normalized.severity} incident: ${normalized.title}`, 5000);
+    },
+    [notify]
+  );
 
-  // Initialize real-time monitoring
-  const { isConnected, newFindings, newIncidents, clearNewFindings, clearNewIncidents, reconnect } =
-    useRealtimeMonitoring(handleNewFinding, handleNewIncident, handleBobAnalysis);
+  const handleBobAnalysis = useCallback(
+    (_incidentId: string, analysis: BobOutput) => {
+      setBobOutput(normalizeBobOutput(analysis));
+      notify("Bob AI analysis completed!", 5000);
+    },
+    [notify]
+  );
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const {
+    isConnected,
+    newFindings,
+    newIncidents,
+    clearNewFindings,
+    clearNewIncidents,
+    reconnect,
+  } = useRealtimeMonitoring(
+    handleNewFinding,
+    handleNewIncident,
+    handleBobAnalysis,
+    () => {
+      setFindings([]);
+      setIncidents([]);
+      setSelectedIncident(null);
+      setBobOutput(null);
+      setActiveTab("overview");
+    }
+  );
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
+
       const [findingsData, incidentsData] = await Promise.all([
         apiClient.getFindings(),
-        apiClient.getIncidents()
+        apiClient.getIncidents(),
       ]);
-      
-      setFindings(findingsData);
-      setIncidents(incidentsData);
-      
-      if (incidentsData.length > 0) {
-        setSelectedIncident(incidentsData[0]);
-        // Auto-load Bob analysis for the first incident
-        const bobData = await apiClient.getBobAnalysis(incidentsData[0].incident_id);
-        setBobOutput(bobData);
+
+      const normalizedFindings = findingsData.map(normalizeFinding);
+      const normalizedIncidents = incidentsData.map(normalizeIncident);
+
+      setFindings(normalizedFindings);
+      setIncidents(normalizedIncidents);
+
+      if (normalizedIncidents.length > 0) {
+        const firstIncident = normalizedIncidents[0];
+        setSelectedIncident(firstIncident);
+
+        try {
+          const bobData = await apiClient.getBobAnalysis(firstIncident.incident_id);
+          setBobOutput(normalizeBobOutput(bobData));
+        } catch {
+          setBobOutput(null);
+        }
+      } else {
+        setSelectedIncident(null);
+        setBobOutput(null);
       }
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error("Error loading data:", error);
+      notify("Failed to load dashboard data. Check backend connection.", 5000);
     } finally {
       setLoading(false);
     }
+  }, [notify]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleTriggerScan = async () => {
+    try {
+      notify("Starting security scan...", 3000);
+
+      await apiClient.triggerScan(["./mock-repos"], true, true);
+
+      notify("Scan completed. Refreshing dashboard...", 3000);
+
+      window.setTimeout(() => {
+        loadData();
+      }, 800);
+    } catch (error) {
+      console.error("Failed to trigger scan:", error);
+      notify("Failed to start scan. Check backend connection.", 5000);
+    }
+  };
+
+  const handleClearAll = async () => {
+    try {
+      await apiClient.clearAllData();
+    } catch (error) {
+      console.warn("Clear endpoint failed. Frontend state will still be cleared.", error);
+    }
+
+    setFindings([]);
+    setIncidents([]);
+    setSelectedIncident(null);
+    setBobOutput(null);
+    setActiveTab("overview");
+
+    clearNewFindings();
+    clearNewIncidents();
+
+    notify("Dashboard data cleared.", 3000);
   };
 
   if (loading) {
     return (
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '80vh',
-        color: '#8b949e'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            border: '4px solid #30363d',
-            borderTopColor: '#58a6ff',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 1rem'
-          }} />
-          <p>Loading Bob Sentinel Dashboard...</p>
+      <main style={pageStyle}>
+        <div style={{ paddingTop: "3rem", color: "#8b949e" }}>
+          Loading Bob Sentinel Dashboard...
         </div>
-      </div>
+      </main>
     );
   }
 
-  const handleTriggerScan = async () => {
-    try {
-      setNotificationMessage('Starting security scan...');
-      setShowNotification(true);
-      
-      const result = await apiClient.triggerScan(['./mock-repos'], true, true);
-      
-      setNotificationMessage('Scan started! Watch for real-time updates...');
-      setTimeout(() => setShowNotification(false), 3000);
-      
-      console.log('Scan triggered:', result);
-    } catch (error) {
-      console.error('Failed to trigger scan:', error);
-      setNotificationMessage('Failed to start scan. Check backend connection.');
-      setTimeout(() => setShowNotification(false), 5000);
-    }
-  };
+  const tabs: { id: ActiveTab; label: string }[] = [
+    { id: "overview", label: "Overview" },
+    { id: "findings", label: "Findings" },
+    { id: "incident", label: "Incident Analysis" },
+    { id: "analysis", label: "Bob AI Analysis" },
+  ];
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto' }}>
-      {/* Real-time Status Bar */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: '1rem',
-        padding: '0.75rem 1rem',
-        backgroundColor: '#161b22',
-        border: '1px solid #30363d',
-        borderRadius: '8px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            {isConnected ? (
-              <>
-                <Wifi size={16} style={{ color: '#56d364' }} />
-                <span style={{ fontSize: '0.875rem', color: '#56d364', fontWeight: 500 }}>
-                  Real-time Monitoring Active
-                </span>
-              </>
-            ) : (
-              <>
-                <WifiOff size={16} style={{ color: '#f85149' }} />
-                <span style={{ fontSize: '0.875rem', color: '#f85149', fontWeight: 500 }}>
-                  Disconnected
-                </span>
-                <button
-                  onClick={reconnect}
-                  style={{
-                    padding: '0.25rem 0.75rem',
-                    backgroundColor: '#21262d',
-                    border: '1px solid #30363d',
-                    borderRadius: '4px',
-                    color: '#58a6ff',
-                    fontSize: '0.75rem',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Reconnect
-                </button>
-              </>
-            )}
-          </div>
+    <main style={pageStyle}>
+      <header style={headerStyle}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <span style={{ fontSize: "1.8rem" }}>🛡️</span>
+          <h1 style={{ margin: 0, color: "#58a6ff" }}>Bob Sentinel</h1>
+          <span
+            style={{
+              backgroundColor: "#21262d",
+              color: "#8b949e",
+              borderRadius: "999px",
+              padding: "0.35rem 0.75rem",
+            }}
+          >
+            Autonomous DevSecOps Assistant
+          </span>
+        </div>
+
+        <span style={{ color: "#8b949e", fontSize: "0.875rem" }}>
+          Powered by IBM Bob
+        </span>
+      </header>
+
+      <section style={statusBarStyle}>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          {isConnected ? (
+            <span
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                color: "#3fb950",
+              }}
+            >
+              <Wifi size={18} /> Real-time Monitoring Active
+            </span>
+          ) : (
+            <span
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                color: "#f85149",
+              }}
+            >
+              <WifiOff size={18} /> Disconnected
+              <button onClick={reconnect}>Reconnect</button>
+            </span>
+          )}
+
           {(newFindings.length > 0 || newIncidents.length > 0) && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Bell size={16} style={{ color: '#d29922' }} />
-              <span style={{ fontSize: '0.875rem', color: '#d29922' }}>
-                {newFindings.length > 0 && `${newFindings.length} new finding${newFindings.length > 1 ? 's' : ''}`}
-                {newFindings.length > 0 && newIncidents.length > 0 && ', '}
-                {newIncidents.length > 0 && `${newIncidents.length} new incident${newIncidents.length > 1 ? 's' : ''}`}
-              </span>
-              <button
-                onClick={() => {
-                  clearNewFindings();
-                  clearNewIncidents();
-                }}
-                style={{
-                  padding: '0.25rem 0.75rem',
-                  backgroundColor: '#21262d',
-                  border: '1px solid #30363d',
-                  borderRadius: '4px',
-                  color: '#8b949e',
-                  fontSize: '0.75rem',
-                  cursor: 'pointer'
-                }}
-              >
-                Clear
-              </button>
-            </div>
+            <span
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.75rem",
+                color: "#d29922",
+              }}
+            >
+              <Bell size={18} />
+              {newFindings.length > 0 &&
+                `${newFindings.length} new finding${newFindings.length > 1 ? "s" : ""}`}
+              {newFindings.length > 0 && newIncidents.length > 0 && ", "}
+              {newIncidents.length > 0 &&
+                `${newIncidents.length} new incident${newIncidents.length > 1 ? "s" : ""}`}
+            </span>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
           <button
             onClick={handleTriggerScan}
             style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: '#238636',
-              border: 'none',
-              borderRadius: '6px',
-              color: '#ffffff',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              transition: 'background-color 0.2s'
+              padding: "0.75rem 1.25rem",
+              backgroundColor: "#238636",
+              border: "none",
+              borderRadius: "6px",
+              color: "#fff",
+              fontWeight: 700,
+              cursor: "pointer",
             }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2ea043'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#238636'}
           >
-            <span>🔍</span>
-            Run Security Scan
+            🔍 Run Security Scan
           </button>
-          <div style={{ fontSize: '0.75rem', color: '#8b949e' }}>
-            Last updated: {new Date().toLocaleTimeString()}
-          </div>
-        </div>
-      </div>
 
-      {/* Notification Toast */}
+          <button
+            onClick={handleClearAll}
+            style={{
+              padding: "0.75rem 1.25rem",
+              backgroundColor: "#21262d",
+              border: "1px solid #30363d",
+              borderRadius: "6px",
+              color: "#e6edf3",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            Clear Dashboard
+          </button>
+
+          <span style={{ color: "#8b949e", fontSize: "0.875rem" }}>
+            Last updated: {new Date().toLocaleTimeString()}
+          </span>
+        </div>
+      </section>
+
       {showNotification && (
-        <div style={{
-          position: 'fixed',
-          top: '2rem',
-          right: '2rem',
-          padding: '1rem 1.5rem',
-          backgroundColor: '#161b22',
-          border: '1px solid #58a6ff',
-          borderRadius: '8px',
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
-          zIndex: 1000,
-          animation: 'slideIn 0.3s ease-out'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <Bell size={20} style={{ color: '#58a6ff' }} />
-            <span style={{ color: '#e6edf3', fontSize: '0.875rem' }}>
-              {notificationMessage}
-            </span>
-          </div>
+        <div
+          style={{
+            position: "fixed",
+            top: "1.5rem",
+            right: "1.5rem",
+            backgroundColor: "#161b22",
+            border: "1px solid #58a6ff",
+            borderRadius: "8px",
+            padding: "1rem 1.5rem",
+            color: "#e6edf3",
+            zIndex: 1000,
+          }}
+        >
+          🔔 {notificationMessage}
         </div>
       )}
 
-      {/* Navigation Tabs */}
-      <div style={{
-        display: 'flex',
-        gap: '0.5rem',
-        marginBottom: '2rem',
-        borderBottom: '1px solid #30363d',
-        paddingBottom: '0'
-      }}>
-        {[
-          { id: 'overview', label: 'Overview' },
-          { id: 'findings', label: 'Findings' },
-          { id: 'incident', label: 'Incident Analysis' },
-          { id: 'analysis', label: 'Bob AI Analysis' }
-        ].map((tab) => (
+      <nav
+        style={{
+          display: "flex",
+          borderBottom: "1px solid #30363d",
+          marginBottom: "2rem",
+        }}
+      >
+        {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as typeof activeTab)}
+            onClick={() => setActiveTab(tab.id)}
             style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: 'transparent',
-              border: 'none',
-              borderBottom: activeTab === tab.id ? '2px solid #58a6ff' : '2px solid transparent',
-              color: activeTab === tab.id ? '#58a6ff' : '#8b949e',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              marginBottom: '-1px'
-            }}
-            onMouseOver={(e) => {
-              if (activeTab !== tab.id) {
-                e.currentTarget.style.color = '#e6edf3';
-              }
-            }}
-            onMouseOut={(e) => {
-              if (activeTab !== tab.id) {
-                e.currentTarget.style.color = '#8b949e';
-              }
+              ...tabButtonBase,
+              borderBottomColor: activeTab === tab.id ? "#58a6ff" : "transparent",
+              color: activeTab === tab.id ? "#58a6ff" : "#8b949e",
             }}
           >
             {tab.label}
           </button>
         ))}
-      </div>
+      </nav>
 
-      {/* Overview Tab */}
-      {activeTab === 'overview' && (
-        <div>
+      {activeTab === "overview" && (
+        <section>
           <OverviewCards
-            incidents={incidents}
             findings={findings}
-            bobAnalysisGenerated={bobOutput !== null}
+            incidents={incidents}
+            bobOutput={bobOutput}
           />
-          
-          <div style={{ marginBottom: '2rem' }}>
-            <h2 style={{
-              fontSize: '1.25rem',
-              fontWeight: 600,
-              color: '#e6edf3',
-              marginBottom: '1rem'
-            }}>
-              Recent Findings
-            </h2>
+
+          <div style={sectionStyle}>
+            <h2>Recent Findings</h2>
             <FindingsTable findings={findings.slice(0, 5)} />
           </div>
 
           {selectedIncident && (
-            <div style={{ marginBottom: '2rem' }}>
-              <h2 style={{
-                fontSize: '1.25rem',
-                fontWeight: 600,
-                color: '#e6edf3',
-                marginBottom: '1rem'
-              }}>
-                Critical Incident
-              </h2>
+            <div style={sectionStyle}>
+              <h2>Critical Incident</h2>
               <IncidentDetail incident={selectedIncident} />
             </div>
           )}
-        </div>
+        </section>
       )}
 
-      {/* Findings Tab */}
-      {activeTab === 'findings' && (
-        <div>
-          <h2 style={{
-            fontSize: '1.5rem',
-            fontWeight: 600,
-            color: '#e6edf3',
-            marginBottom: '1.5rem'
-          }}>
-            All Security Findings
-          </h2>
+      {activeTab === "findings" && (
+        <section>
+          <h2>All Security Findings</h2>
           <FindingsTable findings={findings} />
-        </div>
+        </section>
       )}
 
-      {/* Incident Analysis Tab */}
-      {activeTab === 'incident' && (
-        <div>
-          <h2 style={{
-            fontSize: '1.5rem',
-            fontWeight: 600,
-            color: '#e6edf3',
-            marginBottom: '1.5rem'
-          }}>
-            Incident Analysis
-          </h2>
-          
+      {activeTab === "incident" && (
+        <section>
+          <h2>Incident Analysis</h2>
+
           {selectedIncident ? (
             <>
-              <div style={{ marginBottom: '2rem' }}>
-                <IncidentDetail incident={selectedIncident} />
+              <IncidentDetail incident={selectedIncident} />
+
+              <div style={sectionStyle}>
+                <h3>Attack Path</h3>
+                {selectedIncident.attack_path?.nodes?.length > 0 ? (
+                  <AttackPathGraph attackPath={selectedIncident.attack_path} />
+                ) : (
+                  <p style={{ color: "#8b949e" }}>No attack path available.</p>
+                )}
               </div>
 
-              <div style={{ marginBottom: '2rem' }}>
-                <h3 style={{
-                  fontSize: '1.25rem',
-                  fontWeight: 600,
-                  color: '#e6edf3',
-                  marginBottom: '1rem'
-                }}>
-                  Attack Path
-                </h3>
-                <AttackPathGraph attackPath={selectedIncident.attack_path} />
+              <div style={sectionStyle}>
+                <h3>Related Findings</h3>
+                <FindingsTable findings={selectedIncident.findings ?? []} />
               </div>
 
-              <div style={{ marginBottom: '2rem' }}>
-                <h3 style={{
-                  fontSize: '1.25rem',
-                  fontWeight: 600,
-                  color: '#e6edf3',
-                  marginBottom: '1rem'
-                }}>
-                  Related Findings
-                </h3>
-                <FindingsTable findings={selectedIncident.findings} />
-              </div>
-
-              {selectedIncident.related_memory.length > 0 && (
-                <div>
-                  <h3 style={{
-                    fontSize: '1.25rem',
-                    fontWeight: 600,
-                    color: '#e6edf3',
-                    marginBottom: '1rem'
-                  }}>
-                    AI Memory Patterns
-                  </h3>
-                  <MemoryViewer memories={selectedIncident.related_memory} />
+              {(selectedIncident.related_memory?.length ?? 0) > 0 && (
+                <div style={sectionStyle}>
+                  <h3>AI Memory Patterns</h3>
+                  <MemoryViewer memories={selectedIncident.related_memory ?? []} />
                 </div>
               )}
             </>
           ) : (
-            <div style={{
-              backgroundColor: '#161b22',
-              border: '1px solid #30363d',
-              borderRadius: '8px',
-              padding: '3rem',
-              textAlign: 'center',
-              color: '#8b949e'
-            }}>
-              <p style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>No incidents detected yet</p>
-              <p style={{ fontSize: '0.875rem' }}>Run a security scan to detect and correlate security incidents</p>
+            <div style={{ color: "#8b949e", padding: "2rem 0" }}>
+              <h3>No incidents detected yet</h3>
+              <p>Run a security scan to detect and correlate security incidents.</p>
             </div>
           )}
-        </div>
+        </section>
       )}
 
-      {/* Bob AI Analysis Tab */}
-      {activeTab === 'analysis' && (
-        <div>
-          <h2 style={{
-            fontSize: '1.5rem',
-            fontWeight: 600,
-            color: '#e6edf3',
-            marginBottom: '1.5rem'
-          }}>
-            IBM Bob AI Analysis & Remediation
-          </h2>
+      {activeTab === "analysis" && (
+        <section>
+          <h2>IBM Bob AI Analysis & Remediation</h2>
 
-          <div style={{ marginBottom: '2rem' }}>
-            <BobAnalysis bobOutput={bobOutput} />
-          </div>
+          <BobAnalysis bobOutput={bobOutput} />
 
           {bobOutput && (
             <>
-              <div style={{ marginBottom: '2rem' }}>
-                <h3 style={{
-                  fontSize: '1.25rem',
-                  fontWeight: 600,
-                  color: '#e6edf3',
-                  marginBottom: '1rem'
-                }}>
-                  Incident Report
-                </h3>
+              <div style={sectionStyle}>
+                <h3>Incident Report</h3>
                 <ReportViewer report={bobOutput.incident_report} />
               </div>
 
-              <div style={{ marginBottom: '2rem' }}>
-                <h3 style={{
-                  fontSize: '1.25rem',
-                  fontWeight: 600,
-                  color: '#e6edf3',
-                  marginBottom: '1rem'
-                }}>
-                  AI Memory Created
-                </h3>
+              <div style={sectionStyle}>
+                <h3>AI Memory Created</h3>
                 <MemoryViewer memories={[bobOutput.ai_memory]} />
               </div>
 
-              <div>
-                <h3 style={{
-                  fontSize: '1.25rem',
-                  fontWeight: 600,
-                  color: '#e6edf3',
-                  marginBottom: '1rem'
-                }}>
-                  Pull Request Draft
-                </h3>
+              <div style={sectionStyle}>
+                <h3>Pull Request Draft</h3>
                 <PRDraftViewer prDraft={bobOutput.pr_draft} />
               </div>
             </>
           )}
-        </div>
+        </section>
       )}
-
-      {/* Add CSS animations */}
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        @keyframes slideIn {
-          from {
-            transform: translateX(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-      `}</style>
-    </div>
+    </main>
   );
 }
-
-// Made with Bob

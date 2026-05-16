@@ -1,177 +1,188 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import type { Finding, Incident, BobOutput } from '../api/types';
+import { useEffect, useRef, useState } from "react";
+import type { BobOutput, Finding, Incident } from "../api/types";
+import {
+  normalizeBobOutput,
+  normalizeFinding,
+  normalizeIncident,
+} from "../api/normalize";
 
-const WS_URL = (import.meta as any).env?.VITE_WS_URL || 'ws://localhost:8000/ws';
+type RealtimeMessage =
+  | {
+      type: "scan_completed";
+      findings?: Finding[];
+      incidents?: Incident[];
+      bob_analysis?: BobOutput | null;
+    }
+  | {
+      type: "new_finding";
+      finding: Finding;
+    }
+  | {
+      type: "new_incident";
+      incident: Incident;
+    }
+  | {
+      type: "bob_analysis";
+      incident_id: string;
+      analysis: BobOutput;
+    }
+  | {
+      type: "reset";
+      findings: [];
+      incidents: [];
+      bob_analysis: null;
+    };
 
-interface RealtimeUpdate {
-  type: 'initial_data' | 'new_finding' | 'new_incident' | 'bob_analysis' | 'pong';
-  data?: any;
-  timestamp: string;
-}
-
-interface UseRealtimeMonitoringReturn {
-  isConnected: boolean;
-  newFindings: Finding[];
-  newIncidents: Incident[];
-  clearNewFindings: () => void;
-  clearNewIncidents: () => void;
-  reconnect: () => void;
-}
+const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8000/ws";
 
 export function useRealtimeMonitoring(
-  onNewFinding?: (finding: Finding) => void,
-  onNewIncident?: (incident: Incident) => void,
-  onBobAnalysis?: (incidentId: string, analysis: BobOutput) => void
-): UseRealtimeMonitoringReturn {
+  onNewFinding: (finding: Finding) => void,
+  onNewIncident: (incident: Incident) => void,
+  onBobAnalysis: (incidentId: string, analysis: BobOutput) => void,
+  onReset?: () => void
+) {
+  const socketRef = useRef<WebSocket | null>(null);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+
   const [isConnected, setIsConnected] = useState(false);
   const [newFindings, setNewFindings] = useState<Finding[]>([]);
   const [newIncidents, setNewIncidents] = useState<Incident[]>([]);
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<number | null>(null);
-  const heartbeatIntervalRef = useRef<number | null>(null);
 
-  const clearNewFindings = useCallback(() => {
-    setNewFindings([]);
-  }, []);
+  const clearReconnectTimer = () => {
+    if (reconnectTimerRef.current !== null) {
+      window.clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+  };
 
-  const clearNewIncidents = useCallback(() => {
-    setNewIncidents([]);
-  }, []);
+  const connect = () => {
+    clearReconnectTimer();
 
-  const connect = useCallback(() => {
-    try {
-      const ws = new WebSocket(WS_URL);
-      wsRef.current = ws;
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      return;
+    }
 
-      ws.onopen = () => {
-        console.log('✅ WebSocket connected');
-        setIsConnected(true);
+    const socket = new WebSocket(WS_URL);
+    socketRef.current = socket;
 
-        // Start heartbeat
-        heartbeatIntervalRef.current = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send('ping');
-          }
-        }, 30000); // Send ping every 30 seconds
-      };
+    socket.onopen = () => {
+      setIsConnected(true);
+      reconnectAttemptsRef.current = 0;
 
-      ws.onmessage = (event) => {
-        try {
-          const update: RealtimeUpdate = JSON.parse(event.data);
-          console.log('📨 WebSocket message:', update.type);
+      socket.send(
+        JSON.stringify({
+          type: "client_connected",
+          source: "bob_sentinel_dashboard",
+        })
+      );
+    };
 
-          switch (update.type) {
-            case 'initial_data':
-              console.log('📊 Received initial data');
-              break;
+    socket.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data) as RealtimeMessage;
 
-            case 'new_finding':
-              const finding = update.data as Finding;
-              setNewFindings(prev => [...prev, finding]);
-              if (onNewFinding) {
-                onNewFinding(finding);
-              }
-              // Show browser notification
-              if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification('🔍 New Security Finding', {
-                  body: `${finding.finding_type} detected in ${finding.repo_name}`,
-                  icon: '/favicon.ico'
-                });
-              }
-              break;
-
-            case 'new_incident':
-              const incident = update.data as Incident;
-              setNewIncidents(prev => [...prev, incident]);
-              if (onNewIncident) {
-                onNewIncident(incident);
-              }
-              // Show browser notification
-              if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification('🚨 New Security Incident', {
-                  body: `${incident.severity.toUpperCase()}: ${incident.title}`,
-                  icon: '/favicon.ico'
-                });
-              }
-              break;
-
-            case 'bob_analysis':
-              if (onBobAnalysis && update.data) {
-                onBobAnalysis(update.data.incident_id, update.data.analysis);
-              }
-              // Show browser notification
-              if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification('🤖 Bob Analysis Complete', {
-                  body: 'AI analysis and remediation plan ready',
-                  icon: '/favicon.ico'
-                });
-              }
-              break;
-
-            case 'pong':
-              // Heartbeat response
-              break;
-          }
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
-        }
-      };
-
-      ws.onerror = (error) => {
-        console.error('❌ WebSocket error:', error);
-      };
-
-      ws.onclose = () => {
-        console.log('🔌 WebSocket disconnected');
-        setIsConnected(false);
-
-        // Clear heartbeat
-        if (heartbeatIntervalRef.current) {
-          clearInterval(heartbeatIntervalRef.current);
-          heartbeatIntervalRef.current = null;
+        if (message.type === "new_finding") {
+          const finding = normalizeFinding(message.finding);
+          setNewFindings((prev) => [finding, ...prev]);
+          onNewFinding(finding);
+          return;
         }
 
-        // Attempt to reconnect after 5 seconds
-        reconnectTimeoutRef.current = setTimeout(() => {
-          console.log('🔄 Attempting to reconnect...');
-          connect();
-        }, 5000);
-      };
-    } catch (error) {
-      console.error('Failed to create WebSocket connection:', error);
-    }
-  }, [onNewFinding, onNewIncident, onBobAnalysis]);
+        if (message.type === "new_incident") {
+          const incident = normalizeIncident(message.incident);
+          setNewIncidents((prev) => [incident, ...prev]);
+          onNewIncident(incident);
+          return;
+        }
 
-  const reconnect = useCallback(() => {
-    if (wsRef.current) {
-      wsRef.current.close();
-    }
-    connect();
-  }, [connect]);
+        if (message.type === "bob_analysis") {
+          onBobAnalysis(message.incident_id, normalizeBobOutput(message.analysis));
+          return;
+        }
+
+        if (message.type === "scan_completed") {
+          const findings = (message.findings ?? []).map(normalizeFinding);
+          const incidents = (message.incidents ?? []).map(normalizeIncident);
+
+          findings.forEach((finding) => {
+            setNewFindings((prev) => [finding, ...prev]);
+            onNewFinding(finding);
+          });
+
+          incidents.forEach((incident) => {
+            setNewIncidents((prev) => [incident, ...prev]);
+            onNewIncident(incident);
+          });
+
+          if (message.bob_analysis && incidents[0]) {
+            onBobAnalysis(
+              incidents[0].incident_id,
+              normalizeBobOutput(message.bob_analysis)
+            );
+          }
+
+          return;
+        }
+
+        if (message.type === "reset") {
+          setNewFindings([]);
+          setNewIncidents([]);
+          onReset?.();
+        }
+      } catch (error) {
+        console.error("Failed to parse WebSocket message:", error);
+      }
+    };
+
+    socket.onerror = () => {
+      setIsConnected(false);
+    };
+
+    socket.onclose = () => {
+      setIsConnected(false);
+      reconnectAttemptsRef.current += 1;
+
+      if (reconnectAttemptsRef.current > 5) {
+        console.warn("WebSocket reconnect stopped after 5 failed attempts.");
+        return;
+      }
+
+      const delay = Math.min(1000 * reconnectAttemptsRef.current, 5000);
+
+      reconnectTimerRef.current = window.setTimeout(() => {
+        connect();
+      }, delay);
+    };
+  };
 
   useEffect(() => {
-    // Request notification permission
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().then(permission => {
-        console.log('Notification permission:', permission);
-      });
-    }
-
     connect();
 
     return () => {
-      // Cleanup
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      if (heartbeatIntervalRef.current) {
-        clearInterval(heartbeatIntervalRef.current);
-      }
-      if (wsRef.current) {
-        wsRef.current.close();
+      clearReconnectTimer();
+
+      if (socketRef.current) {
+        socketRef.current.close();
+        socketRef.current = null;
       }
     };
-  }, [connect]);
+    // connect once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const reconnect = () => {
+    reconnectAttemptsRef.current = 0;
+    connect();
+  };
+
+  const clearNewFindings = () => {
+    setNewFindings([]);
+  };
+
+  const clearNewIncidents = () => {
+    setNewIncidents([]);
+  };
 
   return {
     isConnected,
@@ -179,8 +190,6 @@ export function useRealtimeMonitoring(
     newIncidents,
     clearNewFindings,
     clearNewIncidents,
-    reconnect
+    reconnect,
   };
 }
-
-// Made with Bob

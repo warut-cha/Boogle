@@ -1,4 +1,3 @@
-// Shared API contract types for Bob Sentinel
 export type Severity = "info" | "low" | "medium" | "high" | "critical";
 
 export type FindingType =
@@ -24,7 +23,8 @@ export type FindingSource =
   | "rust_scanner"
   | "python_analyzer"
   | "mock_data"
-  | "bob_analysis";
+  | "bob_analysis"
+  | "unknown";
 
 export type Finding = {
   finding_id: string;
@@ -87,7 +87,7 @@ export type Incident = {
   title: string;
   severity: Severity;
   severity_level: 1 | 2 | 3 | 4 | 5;
-  confidence_score: number; // from 0 to 1 example: 0.8 = 80& confidence
+  confidence_score: number;
   confidence_reasons: string[];
   confidence_limitations: string[];
   affected_repos: string[];
@@ -97,6 +97,7 @@ export type Incident = {
   findings: Finding[];
   attack_path: AttackPath;
   related_memory: AIMemory[];
+  timestamp?: string;
 };
 
 export type RecommendedFixType =
@@ -104,12 +105,15 @@ export type RecommendedFixType =
   | "code_fix"
   | "api_fix"
   | "config_fix"
+  | "infrastructure_fix"
   | "test_fix"
   | "memory_rule";
 
 export type RecommendedFix = {
   type: RecommendedFixType;
   description: string;
+  file?: string;
+  endpoint?: string;
 };
 
 export type GeneratedSecurityTest = {
@@ -136,4 +140,9 @@ export type BobOutput = {
   incident_report: string;
   ai_memory: AIMemory;
   pr_draft: PRDraft;
+};
+
+export type ResetResponse = {
+  status: string;
+  message: string;
 };
