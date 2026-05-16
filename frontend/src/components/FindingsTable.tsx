@@ -27,8 +27,10 @@ const getCategoryIcon = (category: string) => {
   }
 };
 
-export default function FindingsTable({ findings }: FindingsTableProps) {
-  if (findings.length === 0) {
+export default function FindingsTable({ findings = [] }: FindingsTableProps) {
+  const safeFindings = findings || [];
+  
+  if (safeFindings.length === 0) {
     return (
       <div style={{
         backgroundColor: '#161b22',
@@ -67,7 +69,7 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
           padding: '0.25rem 0.75rem',
           borderRadius: '1rem'
         }}>
-          {findings.length} total
+          {safeFindings.length} total
         </span>
       </div>
       
@@ -99,7 +101,7 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
             </tr>
           </thead>
           <tbody>
-            {findings.map((finding, index) => (
+            {safeFindings.map((finding, index) => (
               <tr 
                 key={finding.finding_id}
                 style={{

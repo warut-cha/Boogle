@@ -16,7 +16,22 @@ const getSeverityColor = (severity: string): string => {
 };
 
 export default function IncidentDetail({ incident }: IncidentDetailProps) {
-  const confidencePercentage = Math.round(incident.confidence_score * 100);
+  if (!incident) {
+    return (
+      <div style={{
+        backgroundColor: '#161b22',
+        border: '1px solid #30363d',
+        borderRadius: '8px',
+        padding: '2rem',
+        textAlign: 'center',
+        color: '#8b949e'
+      }}>
+        No incident selected
+      </div>
+    );
+  }
+
+  const confidencePercentage = Math.round((incident.confidence_score || 0) * 100);
 
   return (
     <div style={{
@@ -33,9 +48,9 @@ export default function IncidentDetail({ incident }: IncidentDetailProps) {
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-              <AlertTriangle size={24} color={getSeverityColor(incident.severity)} />
+              <AlertTriangle size={24} color={getSeverityColor(incident.severity || 'medium')} />
               <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#e6edf3', margin: 0 }}>
-                {incident.title}
+                {incident.title || 'Untitled Incident'}
               </h2>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -47,7 +62,7 @@ export default function IncidentDetail({ incident }: IncidentDetailProps) {
                 fontWeight: 600,
                 textTransform: 'uppercase',
                 backgroundColor: `${getSeverityColor(incident.severity)}20`,
-                color: getSeverityColor(incident.severity)
+                color: getSeverityColor(incident.severity || 'medium')
               }}>
                 {incident.severity} (Level {incident.severity_level})
               </span>

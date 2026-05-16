@@ -137,3 +137,22 @@ export type BobOutput = {
   ai_memory: AIMemory;
   pr_draft: PRDraft;
 };
+
+// Real-time SSE event types
+export type SSEEventType =
+  | 'connected'
+  | 'heartbeat'
+  | 'finding_added'
+  | 'incident_added'
+  | 'incident_updated'
+  | 'data_cleared'
+  | 'scan_complete'
+  | 'scan_error'
+  | 'demo_progress'
+  | 'demo_complete';
+
+export interface SSEEvent {
+  type: SSEEventType;
+  data?: any;
+  timestamp: string;
+}

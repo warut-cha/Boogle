@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import DashboardPage from './pages/DashboardPage'
+import RealtimeDashboardPage from './pages/RealtimeDashboardPage'
 
 function App() {
   return (
@@ -38,7 +38,7 @@ function App() {
         </div>
       </header>
       <main>
-        <DashboardPage />
+        <RealtimeDashboardPage />
       </main>
     </div>
   )

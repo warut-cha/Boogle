@@ -46,21 +46,25 @@ const Card = ({ icon, title, value, subtitle, color }: CardProps) => (
   </div>
 );
 
-export default function OverviewCards({ incidents, findings, bobAnalysisGenerated }: OverviewCardsProps) {
-  const criticalIncidents = incidents.filter(i => i.severity === 'critical').length;
-  const highSeverityFindings = findings.filter(f => f.severity_hint === 'high' || f.severity_hint === 'critical').length;
+export default function OverviewCards({ incidents = [], findings = [], bobAnalysisGenerated }: OverviewCardsProps) {
+  // Ensure arrays are defined with fallback to empty arrays
+  const safeIncidents = incidents || [];
+  const safeFindings = findings || [];
   
-  const avgConfidence = incidents.length > 0
-    ? Math.round(incidents.reduce((sum, i) => sum + i.confidence_score, 0) / incidents.length * 100)
+  const criticalIncidents = safeIncidents.filter(i => i?.severity === 'critical').length;
+  const highSeverityFindings = safeFindings.filter(f => f?.severity_hint === 'high' || f?.severity_hint === 'critical').length;
+  
+  const avgConfidence = safeIncidents.length > 0
+    ? Math.round(safeIncidents.reduce((sum, i) => sum + (i?.confidence_score || 0), 0) / safeIncidents.length * 100)
     : 0;
 
-  const totalTests = incidents.reduce((sum, i) => {
-    return sum + (i.findings.length > 0 ? 3 : 0); // Mock: 3 tests per incident
+  const totalTests = safeIncidents.reduce((sum, i) => {
+    return sum + (i?.findings?.length > 0 ? 3 : 0); // Mock: 3 tests per incident
   }, 0);
 
-  const affectedRepos = new Set(incidents.flatMap(i => i.affected_repos)).size;
+  const affectedRepos = new Set(safeIncidents.flatMap(i => i?.affected_repos || [])).size;
 
-  const aiMemories = incidents.reduce((sum, i) => sum + i.related_memory.length, 0);
+  const aiMemories = safeIncidents.reduce((sum, i) => sum + (i?.related_memory?.length || 0), 0);
 
   return (
     <div style={{
@@ -79,14 +83,14 @@ export default function OverviewCards({ incidents, findings, bobAnalysisGenerate
       <Card
         icon={<AlertTriangle size={24} />}
         title="Total Findings"
-        value={findings.length}
+        value={safeFindings.length}
         subtitle={`${highSeverityFindings} high/critical`}
         color="#f85149"
       />
       <Card
         icon={<Activity size={24} />}
         title="Correlated Incidents"
-        value={incidents.length}
+        value={safeIncidents.length}
         subtitle={`${criticalIncidents} critical`}
         color="#ff7b72"
       />
@@ -107,7 +111,7 @@ export default function OverviewCards({ incidents, findings, bobAnalysisGenerate
       <Card
         icon={<GitPullRequest size={24} />}
         title="PR Drafts"
-        value={bobAnalysisGenerated ? incidents.length : 0}
+        value={bobAnalysisGenerated ? safeIncidents.length : 0}
         subtitle="Ready for review"
         color="#d29922"
       />
