@@ -96,7 +96,7 @@ export default function IncidentDetail({ incident }: IncidentDetailProps) {
                 </span>
               </div>
               <ul style={{ margin: 0, paddingLeft: '1.5rem', listStyle: 'disc' }}>
-                {incident.confidence_reasons.map((reason, index) => (
+                {(incident.confidence_reasons ?? []).map((reason, index) => (
                   <li key={index} style={{ fontSize: '0.875rem', color: '#8b949e', marginBottom: '0.25rem' }}>
                     {reason}
                   </li>
@@ -112,7 +112,7 @@ export default function IncidentDetail({ incident }: IncidentDetailProps) {
                 </span>
               </div>
               <ul style={{ margin: 0, paddingLeft: '1.5rem', listStyle: 'disc' }}>
-                {incident.confidence_limitations.map((limitation, index) => (
+                {(incident.confidence_limitations ?? []).map((limitation, index) => (
                   <li key={index} style={{ fontSize: '0.875rem', color: '#8b949e', marginBottom: '0.25rem' }}>
                     {limitation}
                   </li>
@@ -134,7 +134,7 @@ export default function IncidentDetail({ incident }: IncidentDetailProps) {
                 Repositories
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                {incident.affected_repos.map((repo, index) => (
+                {(incident.affected_repos ?? []).map((repo, index) => (
                   <span key={index} style={{
                     fontSize: '0.875rem',
                     color: '#58a6ff',
@@ -155,7 +155,7 @@ export default function IncidentDetail({ incident }: IncidentDetailProps) {
                 Files
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                {incident.affected_files.map((file, index) => (
+                {(incident.affected_files ?? []).map((file, index) => (
                   <span key={index} style={{
                     fontSize: '0.875rem',
                     color: '#e6edf3',
@@ -174,13 +174,13 @@ export default function IncidentDetail({ incident }: IncidentDetailProps) {
               </div>
             </div>
 
-            {incident.affected_endpoints.length > 0 && (
+            {(incident.affected_endpoints ?? []).length > 0 && (
               <div>
                 <div style={{ fontSize: '0.75rem', color: '#8b949e', marginBottom: '0.5rem', textTransform: 'uppercase', fontWeight: 600 }}>
                   Endpoints
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  {incident.affected_endpoints.map((endpoint, index) => (
+                  {(incident.affected_endpoints ?? []).map((endpoint, index) => (
                     <span key={index} style={{
                       fontSize: '0.875rem',
                       color: '#d29922',
@@ -197,13 +197,13 @@ export default function IncidentDetail({ incident }: IncidentDetailProps) {
               </div>
             )}
 
-            {incident.affected_database_tables.length > 0 && (
+            {(incident.affected_database_tables ?? []).length > 0 && (
               <div>
                 <div style={{ fontSize: '0.75rem', color: '#8b949e', marginBottom: '0.5rem', textTransform: 'uppercase', fontWeight: 600 }}>
                   Database Tables
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  {incident.affected_database_tables.map((table, index) => (
+                  {(incident.affected_database_tables ?? []).map((table, index) => (
                     <span key={index} style={{
                       fontSize: '0.875rem',
                       color: '#a371f7',
@@ -235,7 +235,7 @@ export default function IncidentDetail({ incident }: IncidentDetailProps) {
             borderRadius: '6px',
             border: '1px solid #30363d'
           }}>
-            {incident.findings.length} findings correlated into this incident
+            {(incident.findings ?? []).length} findings correlated into this incident
           </div>
         </div>
       </div>

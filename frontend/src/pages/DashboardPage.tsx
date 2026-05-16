@@ -419,12 +419,12 @@ export default function DashboardPage() {
             <FindingsTable findings={selectedIncident.findings} />
           </div>
 
-          {selectedIncident.related_memory.length > 0 && (
+          {(selectedIncident.related_memory ?? []).length > 0 && (
             <div>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#e6edf3', marginBottom: '1rem' }}>
                 AI Memory Patterns
               </h3>
-              <MemoryViewer memories={selectedIncident.related_memory} />
+              <MemoryViewer memories={selectedIncident.related_memory ?? []} />
             </div>
           )}
         </div>
