@@ -111,29 +111,91 @@ class MemoryManager:
             'recommended_tests': recommended_tests,
             'severity_escalation_conditions': escalation_conditions,
             'created_at': datetime.now().isoformat(),
-            'incident_id': incident.get('id'),
-            'severity_level': incident.get('severity', {}).get('level', 3)
+            'incident_id': incident.get('id') or incident.get('incident_id'),
+            'severity_level': self._extract_severity_level(incident)
         }
         
+    
+    def _extract_severity_level(self, incident: Dict[str, Any]) -> int:
+        """
+        Extract severity level from incident, handling different formats.
+        
+        Args:
+            incident: Incident dictionary
+            
+        Returns:
+            Severity level as integer (1-5), defaults to 3
+        """
+        # First check for direct severity_level field
+        if 'severity_level' in incident:
+            level = incident['severity_level']
+            if isinstance(level, int):
+                return level
+        
+        # Check if severity is a dict with level
+        severity = incident.get('severity')
+        if isinstance(severity, dict):
+            level = severity.get('level', 3)
+            if isinstance(level, int):
+                return level
+        
+        # If severity is a string, map it to a level
+        if isinstance(severity, str):
+            severity_map = {
+                'critical': 5,
+                'high': 4,
+                'medium': 3,
+                'low': 2,
+                'info': 1,
+                'informational': 1
+            }
+            return severity_map.get(severity.lower(), 3)
+        
+        # Default to medium severity
+        return 3
         return memory_entry
     
-    def _extract_incident_pattern(self, incident: Dict[str, Any]) -> str:
-        """Extract incident pattern description"""
-        incident_type = incident.get('type', 'unknown')
-        correlation_type = incident.get('correlation_type', 'none')
-        findings = incident.get('findings', [])
-        
-        finding_types = list(set(f.get('type') for f in findings))
-        
-        if correlation_type == 'attack_chain':
-            return f"Coordinated attack chain involving: {', '.join(finding_types)}"
-        elif correlation_type == 'temporal':
-            return f"Multiple security events from same source: {', '.join(finding_types)}"
-        elif correlation_type == 'credential':
-            return f"Multiple credential exposures of type: {', '.join(finding_types)}"
-        else:
-            return f"Security issue: {incident.get('title', 'Unknown')}"
-    
+    def _get_value(self, item, key, default=None):
+        """Safely read from dicts or objects."""
+        if isinstance(item, dict):
+            return item.get(key, default)
+
+        return getattr(item, key, default)
+
+
+    def _extract_incident_pattern(self, incident) -> str:
+        """Extract a stable incident pattern from an incident."""
+
+        findings = self._get_value(incident, "findings", [])
+
+        finding_types: list[str] = []
+
+        for finding in findings:
+            finding_type = (
+                self._get_value(finding, "finding_type")
+                or self._get_value(finding, "type")
+                or self._get_value(finding, "category")
+            )
+
+            if finding_type is None:
+                continue
+
+            finding_types.append(str(finding_type))
+
+        if not finding_types:
+            title = self._get_value(incident, "title")
+            if title:
+                return str(title)
+
+            severity = self._get_value(incident, "severity", "unknown")
+            return f"unknown_incident_pattern_{severity}"
+
+        unique_types = sorted(set(finding_types))
+
+        if len(unique_types) == 1:
+            return unique_types[0]
+
+        return f"Coordinated attack chain involving: {', '.join(unique_types)}"
     def _determine_root_cause(self, incident: Dict[str, Any]) -> str:
         """Determine root cause of incident"""
         findings = incident.get('findings', [])

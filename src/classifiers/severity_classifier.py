@@ -328,6 +328,62 @@ class SeverityClassifier:
             )
         }
     
+    def _get_value(self, item, key, default=None):
+        """Safely read a value from a dict or object."""
+        if isinstance(item, dict):
+            return item.get(key, default)
+        
+        return getattr(item, key, default)
+    
+    def _get_severity_name(self, incident) -> str:
+        """Return normalized lowercase severity name."""
+        severity = self._get_value(incident, "severity", "medium")
+        
+        if isinstance(severity, dict):
+            severity = (
+                severity.get("name")
+                or severity.get("label")
+                or severity.get("severity")
+                or "medium"
+            )
+        
+        if severity is None:
+            return "medium"
+        
+        return str(severity).lower()
+    
+    def _get_severity_level(self, incident) -> int:
+        """Return severity level using the new contract first, old format second."""
+        severity_level = self._get_value(incident, "severity_level")
+        
+        if severity_level is not None:
+            try:
+                return int(severity_level)
+            except (TypeError, ValueError):
+                pass
+        
+        severity = self._get_value(incident, "severity", "medium")
+        
+        if isinstance(severity, dict):
+            try:
+                return int(severity.get("level", 3))
+            except (TypeError, ValueError):
+                return 3
+        
+        # Handle None case before using severity_map
+        if severity is None:
+            return 3
+        
+        severity_map = {
+            "info": 1,
+            "low": 2,
+            "medium": 3,
+            "high": 4,
+            "critical": 5,
+        }
+        
+        return severity_map.get(str(severity).lower(), 3)
+    
     def get_severity_description(self, level: int) -> str:
         """Get detailed description for severity level"""
         descriptions = {
