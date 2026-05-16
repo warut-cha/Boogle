@@ -938,6 +938,8 @@ export const apiClient = {
       return Promise.resolve(s?.bobOutput ?? s1BobOutput);
     }
     const response = await axios.post(`${API_BASE_URL}/api/incidents/${incidentId}/analyze-with-bob`);
+    // Backend returns {error, incident_id} when Bob analysis is unavailable
+    if (response.data?.error) return null as any;
     return response.data;
   },
 

@@ -182,7 +182,7 @@ export default function PRDraftViewer({ prDraft }: PRDraftViewerProps) {
             textTransform: 'uppercase',
             marginBottom: '0.5rem'
           }}>
-            Files to Change ({prDraft.files_to_change.length})
+            Files to Change ({(prDraft.files_to_change ?? []).length})
           </div>
           <div style={{
             padding: '1rem',
@@ -191,7 +191,7 @@ export default function PRDraftViewer({ prDraft }: PRDraftViewerProps) {
             borderRadius: '6px'
           }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {prDraft.files_to_change.map((file, index) => (
+              {(prDraft.files_to_change ?? []).map((file, index) => (
                 <div
                   key={index}
                   style={{

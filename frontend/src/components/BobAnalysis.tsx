@@ -115,7 +115,7 @@ export default function BobAnalysis({ bobOutput }: BobAnalysisProps) {
             </h3>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {bobOutput.recommended_fixes.map((fix, index) => (
+            {(bobOutput.recommended_fixes ?? []).map((fix, index) => (
               <div
                 key={index}
                 style={{
@@ -164,10 +164,10 @@ export default function BobAnalysis({ bobOutput }: BobAnalysisProps) {
             borderRadius: '6px'
           }}>
             <div style={{ fontSize: '0.875rem', color: '#8b949e', marginBottom: '0.5rem' }}>
-              {bobOutput.generated_security_tests.length} test{bobOutput.generated_security_tests.length !== 1 ? 's' : ''} generated to prevent regression
+              {(bobOutput.generated_security_tests ?? []).length} test{(bobOutput.generated_security_tests ?? []).length !== 1 ? 's' : ''} generated to prevent regression
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {bobOutput.generated_security_tests.map((test, index) => (
+              {(bobOutput.generated_security_tests ?? []).map((test, index) => (
                 <div
                   key={index}
                   style={{

@@ -66,7 +66,7 @@ export default function DashboardPage() {
       if (incidentsData.length > 0) {
         setSelectedIncident(incidentsData[0]);
         const bobData = await apiClient.getBobAnalysis(incidentsData[0].incident_id, '', false);
-        setBobOutput(bobData);
+        setBobOutput(bobData ?? null);
       } else {
         setSelectedIncident(null);
         setBobOutput(null);
