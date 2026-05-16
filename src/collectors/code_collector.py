@@ -104,7 +104,7 @@ class CodeCollector:
             }
             
             self.files_collected.append(file_info)
-            logger.debug(f"Collected file: {file_path}")
+            logger.debug("Collected code data successfully")
             
         except Exception as e:
             logger.error(f"Error collecting file {file_path}: {str(e)}")

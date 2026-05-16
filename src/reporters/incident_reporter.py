@@ -168,7 +168,7 @@ class IncidentReporter:
         content.append("   - Regular security audits\n")
         
         # Write to file
-        with open(path, 'w') as f:
+        with open(path, 'w', encoding='utf-8') as f:
             f.write('\n'.join(content))
         
         logger.info(f"Generated Markdown summary: {path}")

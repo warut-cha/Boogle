@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Gateway
+metadata:
+  name: api-gateway
+  namespace: production
+spec:
+  routes:
+    - name: legacy-export
+      path: "/api/v1/export-users"
+      backend:
+        service: legacy-backend
+        port: 8080
+      # TODO: This endpoint should be removed
+      
+    - name: deprecated-backup
+      path: "/legacy/download-backup"
+      backend:
+        service: legacy-backend
+        port: 8080
+      
+    - name: admin-console
+      path: "/admin"
+      backend:
+        service: admin-service
+        port: 9000
+      # WARNING: Admin endpoint exposed
+      
+    - name: new-api
+      path: "/api/v2/users"
+      backend:
+        service: user-service
+        port: 8080
+        
+  tls:
+    enabled: false
+    # Using insecure HTTP for now
+    
+  upstream:
+    url: "http://internal-backend.local"
+
+# Made with Bob

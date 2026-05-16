@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  legacy-backend:
+    build: ../legacy-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - API_KEY=sk_live_production_key_abc123
+    networks:
+      - app-network
+      
+  database:
+    image: postgres:14
+    ports:
+      - "5432:5432"  # Exposed to host - security risk
+    environment:
+      - POSTGRES_PASSWORD=SuperSecret123!
+      - POSTGRES_USER=admin
+      - POSTGRES_DB=production
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+      
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"  # Exposed to host
+    networks:
+      - app-network
+      
+  admin-service:
+    build: ./admin
+    privileged: true  # Security risk
+    ports:
+      - "9000:9000"
+    environment:
+      - ADMIN_PASSWORD=admin123
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  db-data:
+
+# Made with Bob
