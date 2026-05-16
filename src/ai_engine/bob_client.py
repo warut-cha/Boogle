@@ -30,8 +30,9 @@ class BobClient:
             config: Bob configuration including API credentials
         """
         self.config = config
-        self.enabled = config.get('enabled', True) and WATSONX_AVAILABLE
         self.mock_mode = config.get('mock_mode', False)
+        # mock_mode works without the SDK; real mode requires it
+        self.enabled = config.get('enabled', True) and (self.mock_mode or WATSONX_AVAILABLE)
         
         # Model configuration
         self.model_id = config.get('model_id', 'ibm/granite-13b-chat-v2')

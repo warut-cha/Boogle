@@ -73,6 +73,9 @@ Learns from incidents to prevent future occurrences:
 # Python 3.9 or higher
 python --version
 
+# Node.js 16 or higher (for dashboard)
+node --version
+
 # MongoDB (optional, SQLite fallback available)
 mongod --version
 ```
@@ -81,23 +84,50 @@ mongod --version
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd security-analyst
+cd IBM-BOB
 
-# Install dependencies
+# Install Python dependencies
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# Configure the system
-cp config/config.yaml.example config/config.yaml
-# Edit config.yaml with your settings
+# Install frontend dependencies
+cd frontend
+npm install
+cd ..
 ```
 
-### Basic Usage
+### Running the Full System (Dashboard + API)
+
+**Option 1: Automated Startup (Recommended)**
+```bash
+# Start both backend API and frontend dashboard
+./start_services.sh
+```
+
+Then open your browser to:
+- 📊 **Dashboard:** http://localhost:5173
+- 🔌 **API:** http://localhost:8000
+- 💚 **Health Check:** http://localhost:8000/api/health
+
+**Option 2: Manual Startup**
+```bash
+# Terminal 1 - Backend API
+source venv/bin/activate
+python src/api_server.py
+
+# Terminal 2 - Frontend Dashboard
+cd frontend
+npm run dev
+```
+
+### CLI Usage (Without Dashboard)
 ```bash
 # Run full security analysis
-python src/main.py analyze --path ./mock_data/repos
+python src/main.py analyze --path ./mock-repos
 
-# Analyze specific repository
-python src/main.py analyze --path ./mock_data/repos/ecommerce_app
+# Analyze with Bob AI reasoning
+python src/main.py analyze --path ./mock-repos --use-bob
 
 # Generate incident report
 python src/main.py report --incident-id INC-2026-001
@@ -106,7 +136,7 @@ python src/main.py report --incident-id INC-2026-001
 python src/main.py memory --list
 
 # Run security tests
-python src/main.py test --path ./mock_data/repos
+python src/main.py test --path ./mock-repos
 
 # Export findings as JSON
 python src/main.py export --format json --output findings.json
