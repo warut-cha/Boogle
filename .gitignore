@@ -81,3 +81,7 @@ credentials/
 *.crt
 
 # Made with Bob
+
+# Rust build output
+rust-scanner/target/
+target/
