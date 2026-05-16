@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
-
+from runtime_lab.mock_database import DB_PATH, init_db, reset_events
+from src.realtime_detector import RealtimeAttackDetector
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from copy import deepcopy
 from datetime import datetime, timezone
 from uuid import uuid4
+from contextlib import asynccontextmanager
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 CONTRACTS_DIR = ROOT_DIR / "contracts"
@@ -18,7 +20,23 @@ incidents_store: list[dict[str, Any]] = []
 bob_analysis_store: dict[str, Any] | None = None
 updates_store: list[dict[str, Any]] = []
 
-app = FastAPI(title="Jeff API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db(reset=False)
+    await realtime_detector.start()
+    print("[Jeff] Real-time attack detector started automatically.")
+
+    try:
+        yield
+    finally:
+        await realtime_detector.stop()
+        print("[Jeff] Real-time attack detector stopped.")
+
+
+app = FastAPI(
+    title="Jeff API",
+    lifespan=lifespan,
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -75,7 +93,13 @@ class WebSocketManager:
 
 ws_manager = WebSocketManager()
 
-
+realtime_detector = RealtimeAttackDetector(
+    db_path=DB_PATH,
+    findings_store=findings_store,
+    incidents_store=incidents_store,
+    ws_manager=ws_manager,
+    poll_interval_seconds=1.0,
+)
 def load_json_file(path: Path, fallback: Any) -> Any:
     try:
         if not path.exists():
@@ -106,6 +130,51 @@ def load_sample_bob_output() -> dict[str, Any]:
     data = load_json_file(CONTRACTS_DIR / "sample_bob_output.json", {})
     return data if isinstance(data, dict) else {}
 
+@app.post("/api/mock-db/init")
+def init_mock_database(reset: bool = False) -> dict[str, str]:
+    init_db(reset=reset)
+
+    return {
+        "status": "success",
+        "message": "Mock database initialized",
+    }
+
+@app.get("/api/realtime/status")
+def get_realtime_status() -> dict[str, Any]:
+    return realtime_detector.status()
+
+
+@app.post("/api/realtime/start")
+async def start_realtime_detection() -> dict[str, Any]:
+    init_db(reset=False)
+    await realtime_detector.start()
+
+    return {
+        "status": "success",
+        "message": "Real-time attack detection started",
+        "detector": realtime_detector.status(),
+    }
+
+
+@app.post("/api/realtime/stop")
+async def stop_realtime_detection() -> dict[str, Any]:
+    await realtime_detector.stop()
+
+    return {
+        "status": "success",
+        "message": "Real-time attack detection stopped",
+        "detector": realtime_detector.status(),
+    }
+
+
+@app.delete("/api/mock-db/events")
+async def clear_mock_database_events() -> dict[str, str]:
+    reset_events()
+
+    return {
+        "status": "success",
+        "message": "Mock database events cleared",
+    }
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket) -> None:
@@ -286,6 +355,8 @@ async def reset_dashboard_data() -> dict[str, str]:
     updates_store.clear()
     bob_analysis_store = None
 
+    reset_events()
+
     await ws_manager.broadcast(
         {
             "type": "reset",
@@ -297,5 +368,5 @@ async def reset_dashboard_data() -> dict[str, str]:
 
     return {
         "status": "success",
-        "message": "All stored dashboard data cleared",
+        "message": "All stored dashboard data and mock DB events cleared",
     }
