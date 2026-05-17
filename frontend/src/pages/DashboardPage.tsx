@@ -19,7 +19,6 @@ import AttackPathGraph from "../components/AttackPathGraph";
 import BobAnalysis from "../components/BobAnalysis";
 import ReportViewer from "../components/ReportViewer";
 import MemoryViewer from "../components/MemoryViewer";
-import PRDraftViewer from "../components/PRDraftViewer";
 
 type ActiveTab = "overview" | "findings" | "incident" | "analysis";
 
@@ -586,11 +585,6 @@ export default function DashboardPage() {
                 <h4>AI Memory Created</h4>
                 <MemoryViewer memories={[report.analysis.ai_memory]} />
               </div>
-
-              <div style={sectionStyle}>
-                <h4>Pull Request Draft</h4>
-                <PRDraftViewer prDraft={report.analysis.pr_draft} />
-              </div>
             </div>
           ))}
         </div>
@@ -608,11 +602,6 @@ export default function DashboardPage() {
               <div style={sectionStyle}>
                 <h3>AI Memory Created</h3>
                 <MemoryViewer memories={[bobOutput.ai_memory]} />
-              </div>
-
-              <div style={sectionStyle}>
-                <h3>Pull Request Draft</h3>
-                <PRDraftViewer prDraft={bobOutput.pr_draft} />
               </div>
             </>
           )}

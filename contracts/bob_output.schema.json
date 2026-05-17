@@ -11,8 +11,7 @@
     "recommended_fixes",
     "generated_security_tests",
     "incident_report",
-    "ai_memory",
-    "pr_draft"
+    "ai_memory"
   ],
   "properties": {
     "attack_type": {
@@ -99,19 +98,6 @@
           "items": { "type": "string" }
         },
         "severity_escalation_conditions": {
-          "type": "array",
-          "items": { "type": "string" }
-        }
-      }
-    },
-    "pr_draft": {
-      "type": "object",
-      "required": ["branch_name", "pr_title", "pr_description", "files_to_change"],
-      "properties": {
-        "branch_name": { "type": "string" },
-        "pr_title": { "type": "string" },
-        "pr_description": { "type": "string" },
-        "files_to_change": {
           "type": "array",
           "items": { "type": "string" }
         }

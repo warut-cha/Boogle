@@ -123,13 +123,6 @@ export type GeneratedSecurityTest = {
   code: string;
 };
 
-export type PRDraft = {
-  branch_name: string;
-  pr_title: string;
-  pr_description: string;
-  files_to_change: string[];
-};
-
 export type BobOutput = {
   attack_type: string;
   target: string;
@@ -139,7 +132,6 @@ export type BobOutput = {
   generated_security_tests: GeneratedSecurityTest[];
   incident_report: string;
   ai_memory: AIMemory;
-  pr_draft: PRDraft;
 };
 
 export type ResetResponse = {
