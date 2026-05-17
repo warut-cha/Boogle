@@ -181,4 +181,12 @@ export const apiClient = {
       };
     }
   },
+  async simulateAttack(): Promise<{
+  status: string;
+  message: string;
+  incident_id: string;
+  }> {
+  const response = await axios.post(`${API_BASE_URL}/api/simulate-attack`);
+  return response.data;
+},
 };

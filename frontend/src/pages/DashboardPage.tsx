@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell, Wifi, WifiOff } from "lucide-react";
 import { apiClient } from "../api/client";
 import type { BobOutput, Finding, Incident } from "../api/types";
@@ -90,7 +90,7 @@ export default function DashboardPage() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [bobOutput, setBobOutput] = useState<BobOutput | null>(null);
-
+  const analyzedIncidentIdsRef = useRef<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
 
@@ -154,6 +154,8 @@ export default function DashboardPage() {
     handleNewIncident,
     handleBobAnalysis,
     () => {
+      analyzedIncidentIdsRef.current.clear();
+
       setFindings([]);
       setIncidents([]);
       setSelectedIncident(null);
@@ -244,6 +246,8 @@ export default function DashboardPage() {
     } catch (error) {
       console.warn("Clear endpoint failed. Frontend state will still be cleared.", error);
     }
+
+    analyzedIncidentIdsRef.current.clear();
 
     setFindings([]);
     setIncidents([]);

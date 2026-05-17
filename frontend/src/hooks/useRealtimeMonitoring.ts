@@ -8,6 +8,13 @@ import {
 
 type RealtimeMessage =
   | {
+      type: "attack_detected";
+      finding?: Finding;
+      findings?: Finding[];
+      incident?: Incident;
+      bob_analysis?: BobOutput | null;
+    }
+  | {
       type: "scan_completed";
       findings?: Finding[];
       incidents?: Incident[];
@@ -56,6 +63,19 @@ export function useRealtimeMonitoring(
     }
   };
 
+  const addFinding = (finding: Finding) => {
+    const normalized = normalizeFinding(finding);
+    setNewFindings((prev) => [normalized, ...prev]);
+    onNewFinding(normalized);
+  };
+
+  const addIncident = (incident: Incident) => {
+    const normalized = normalizeIncident(incident);
+    setNewIncidents((prev) => [normalized, ...prev]);
+    onNewIncident(normalized);
+    return normalized;
+  };
+
   const connect = () => {
     clearReconnectTimer();
 
@@ -83,21 +103,35 @@ export function useRealtimeMonitoring(
         const message = JSON.parse(event.data) as RealtimeMessage;
 
         if (message.type === "new_finding") {
-          const finding = normalizeFinding(message.finding);
-          setNewFindings((prev) => [finding, ...prev]);
-          onNewFinding(finding);
+          addFinding(message.finding);
           return;
         }
 
         if (message.type === "new_incident") {
-          const incident = normalizeIncident(message.incident);
-          setNewIncidents((prev) => [incident, ...prev]);
-          onNewIncident(incident);
+          addIncident(message.incident);
           return;
         }
 
-        if (message.type === "bob_analysis") {
-          onBobAnalysis(message.incident_id, normalizeBobOutput(message.analysis));
+        if (message.type === "attack_detected") {
+          let incidentId = "";
+
+          if (message.finding) {
+            addFinding(message.finding);
+          }
+
+          if (Array.isArray(message.findings)) {
+            message.findings.forEach(addFinding);
+          }
+
+          if (message.incident) {
+            const normalizedIncident = addIncident(message.incident);
+            incidentId = normalizedIncident.incident_id;
+          }
+
+          if (message.bob_analysis && incidentId) {
+            onBobAnalysis(incidentId, normalizeBobOutput(message.bob_analysis));
+          }
+
           return;
         }
 
@@ -105,15 +139,8 @@ export function useRealtimeMonitoring(
           const findings = (message.findings ?? []).map(normalizeFinding);
           const incidents = (message.incidents ?? []).map(normalizeIncident);
 
-          findings.forEach((finding) => {
-            setNewFindings((prev) => [finding, ...prev]);
-            onNewFinding(finding);
-          });
-
-          incidents.forEach((incident) => {
-            setNewIncidents((prev) => [incident, ...prev]);
-            onNewIncident(incident);
-          });
+          findings.forEach(addFinding);
+          incidents.forEach(addIncident);
 
           if (message.bob_analysis && incidents[0]) {
             onBobAnalysis(
@@ -122,6 +149,11 @@ export function useRealtimeMonitoring(
             );
           }
 
+          return;
+        }
+
+        if (message.type === "bob_analysis") {
+          onBobAnalysis(message.incident_id, normalizeBobOutput(message.analysis));
           return;
         }
 
@@ -167,7 +199,6 @@ export function useRealtimeMonitoring(
         socketRef.current = null;
       }
     };
-    // connect once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
