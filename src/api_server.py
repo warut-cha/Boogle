@@ -190,12 +190,6 @@ async def run_bob_reasoning_background(incident: dict[str, Any]) -> None:
                 "recommended_tests": [],
                 "severity_escalation_conditions": [],
             },
-            "pr_draft": {
-                "branch_name": "security/fix-bob-background-analysis",
-                "pr_title": "Fix IBM Bob background analysis",
-                "pr_description": "IBM Bob failed during background incident analysis.",
-                "files_to_change": ["src/api_server.py", "src/ai_engine/bob_client.py"],
-            },
             "memory_saved": False,
             "saved_memory_id": None,
         }

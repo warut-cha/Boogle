@@ -54,8 +54,7 @@
           "fix_plan",
           "security_tests",
           "incident_report",
-          "ai_memory",
-          "pr_draft"
+          "ai_memory"
         ]
       }
     }

@@ -259,14 +259,5 @@ export function normalizeBobOutput(input: Partial<BobOutput> | any): BobOutput {
       "No incident report generated."
     ),
     ai_memory: normalizeAIMemory(input?.ai_memory),
-    pr_draft: {
-      branch_name: asString(input?.pr_draft?.branch_name, "security/generated-fix"),
-      pr_title: asString(input?.pr_draft?.pr_title, "Security fix"),
-      pr_description: asString(
-        input?.pr_draft?.pr_description,
-        "Generated PR draft."
-      ),
-      files_to_change: asArray<string>(input?.pr_draft?.files_to_change),
-    },
   };
 }
