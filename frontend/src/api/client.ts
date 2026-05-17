@@ -6,7 +6,8 @@ import {
   normalizeIncident,
 } from "./normalize";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
 const FINDINGS_STORAGE_KEY = "bob_sentinel_findings";
 const INCIDENTS_STORAGE_KEY = "bob_sentinel_incidents";
@@ -15,7 +16,11 @@ const BOB_OUTPUT_STORAGE_KEY = "bob_sentinel_bob_output";
 function loadStoredJson<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
+
+    if (!raw) {
+      return fallback;
+    }
+
     return JSON.parse(raw) as T;
   } catch {
     return fallback;
@@ -32,15 +37,45 @@ function clearStoredDashboardData(): void {
   localStorage.removeItem(BOB_OUTPUT_STORAGE_KEY);
 }
 
+export type AIMemoryResponse = {
+  count: number;
+  memories: any[];
+};
+
+export type ScanResponse = {
+  status: string;
+  message: string;
+  run_id?: string;
+  paths: string[];
+  new_findings: Finding[];
+  new_incidents: Incident[];
+  bob_analysis: BobOutput | null;
+  total_findings?: number;
+  total_incidents?: number;
+  findings_count?: number;
+  incidents_count?: number;
+  bob_status?: string;
+  memory_saved?: boolean;
+  saved_memory_id?: string | null;
+};
+
+export type SimulateAttackResponse = {
+  status: string;
+  message: string;
+  incident_id: string;
+};
+
 export const apiClient = {
   async getFindings(): Promise<Finding[]> {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/findings`);
+
       const findings = Array.isArray(response.data)
         ? response.data.map(normalizeFinding)
         : [];
 
       saveStoredJson(FINDINGS_STORAGE_KEY, findings);
+
       return findings;
     } catch (error) {
       console.warn(
@@ -55,11 +90,13 @@ export const apiClient = {
   async getIncidents(): Promise<Incident[]> {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/incidents`);
+
       const incidents = Array.isArray(response.data)
         ? response.data.map(normalizeIncident)
         : [];
 
       saveStoredJson(INCIDENTS_STORAGE_KEY, incidents);
+
       return incidents;
     } catch (error) {
       console.warn(
@@ -83,7 +120,9 @@ export const apiClient = {
       );
 
       const bobOutput = normalizeBobOutput(response.data);
+
       saveStoredJson(BOB_OUTPUT_STORAGE_KEY, bobOutput);
+
       return bobOutput;
     } catch (error) {
       console.warn(
@@ -91,7 +130,10 @@ export const apiClient = {
         error
       );
 
-      const stored = loadStoredJson<BobOutput | null>(BOB_OUTPUT_STORAGE_KEY, null);
+      const stored = loadStoredJson<BobOutput | null>(
+        BOB_OUTPUT_STORAGE_KEY,
+        null
+      );
 
       if (stored) {
         return normalizeBobOutput(stored);
@@ -107,15 +149,24 @@ export const apiClient = {
     );
 
     const bobOutput = normalizeBobOutput(response.data);
+
     saveStoredJson(BOB_OUTPUT_STORAGE_KEY, bobOutput);
+
     return bobOutput;
   },
 
   async pollForUpdates(
     lastTimestamp?: string
-  ): Promise<{ findings: Finding[]; incidents: Incident[]; hasUpdates: boolean }> {
+  ): Promise<{
+    findings: Finding[];
+    incidents: Incident[];
+    hasUpdates: boolean;
+  }> {
     const params = lastTimestamp ? { since: lastTimestamp } : {};
-    const response = await axios.get(`${API_BASE_URL}/api/updates`, { params });
+
+    const response = await axios.get(`${API_BASE_URL}/api/updates`, {
+      params,
+    });
 
     return {
       findings: Array.isArray(response.data?.findings)
@@ -127,22 +178,31 @@ export const apiClient = {
       hasUpdates: Boolean(response.data?.hasUpdates),
     };
   },
-  
+
+  async getAIMemory(): Promise<AIMemoryResponse> {
+    const response = await axios.get(`${API_BASE_URL}/api/memory`);
+
+    return {
+      count: response.data?.count ?? 0,
+      memories: Array.isArray(response.data?.memories)
+        ? response.data.memories
+        : [],
+    };
+  },
+
+  async clearAIMemory(): Promise<{
+    status: string;
+    message: string;
+  }> {
+    const response = await axios.delete(`${API_BASE_URL}/api/memory`);
+    return response.data;
+  },
+
   async triggerScan(
     paths: string[],
     useMock: boolean = true,
     useBob: boolean = true
-  ): Promise<{
-    status: string;
-    message: string;
-    run_id: string;
-    paths: string[];
-    new_findings: Finding[];
-    new_incidents: Incident[];
-    bob_analysis: BobOutput | null;
-    total_findings: number;
-    total_incidents: number;
-  }> {
+  ): Promise<ScanResponse> {
     const response = await axios.post(`${API_BASE_URL}/api/scan`, {
       paths,
       use_mock: useMock,
@@ -151,6 +211,7 @@ export const apiClient = {
 
     return {
       ...response.data,
+      paths: Array.isArray(response.data?.paths) ? response.data.paths : paths,
       new_findings: Array.isArray(response.data?.new_findings)
         ? response.data.new_findings.map(normalizeFinding)
         : [],
@@ -161,6 +222,11 @@ export const apiClient = {
         ? normalizeBobOutput(response.data.bob_analysis)
         : null,
     };
+  },
+
+  async simulateAttack(): Promise<SimulateAttackResponse> {
+    const response = await axios.post(`${API_BASE_URL}/api/simulate-attack`);
+    return response.data;
   },
 
   async clearAllData(): Promise<ResetResponse> {
@@ -177,16 +243,9 @@ export const apiClient = {
 
       return {
         status: "local_only",
-        message: "Local dashboard data cleared. Backend reset endpoint unavailable.",
+        message:
+          "Local dashboard data cleared. Backend reset endpoint unavailable.",
       };
     }
   },
-  async simulateAttack(): Promise<{
-  status: string;
-  message: string;
-  incident_id: string;
-  }> {
-  const response = await axios.post(`${API_BASE_URL}/api/simulate-attack`);
-  return response.data;
-},
 };

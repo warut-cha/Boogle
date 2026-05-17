@@ -51,6 +51,8 @@ export class ApiClient {
     // This would connect to the database
     return { userId, email: 'user@example.com' };
   }
+  
+  
 }
 
 export default new ApiClient();

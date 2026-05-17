@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import os
 from typing import Any
-
+from ibm_watsonx_ai import Credentials
+from ibm_watsonx_ai.foundation_models import ModelInference
+from ibm_watsonx_ai.metanames import GenChatParamsMetaNames as ChatParams
 try:
     from dotenv import load_dotenv
 
@@ -72,6 +74,47 @@ class BobClient:
                 incident,
                 reason=f"IBM Bob is not functional because watsonx.ai analysis failed: {error}",
             )
+    def _extract_chat_content(self, response: Any) -> str:
+        if isinstance(response, str):
+            return response
+
+        if not isinstance(response, dict):
+            return str(response)
+
+        choices = response.get("choices")
+
+        if isinstance(choices, list) and choices:
+            first_choice = choices[0]
+
+            if isinstance(first_choice, dict):
+                message = first_choice.get("message")
+
+                if isinstance(message, dict):
+                    content = message.get("content")
+
+                    if isinstance(content, str):
+                        return content
+
+                    if isinstance(content, list):
+                        parts: list[str] = []
+
+                        for item in content:
+                            if isinstance(item, dict):
+                                text = item.get("text")
+                                if isinstance(text, str):
+                                    parts.append(text)
+
+                        return "\n".join(parts)
+
+        output = response.get("output")
+        if isinstance(output, str):
+            return output
+
+        generated_text = response.get("generated_text")
+        if isinstance(generated_text, str):
+            return generated_text
+
+        return json.dumps(response)
 
     def _missing_config(self) -> list[str]:
         missing: list[str] = []
@@ -95,9 +138,6 @@ class BobClient:
         incident: dict[str, Any],
         related_memory: list[dict[str, Any]],
     ) -> str:
-        from ibm_watsonx_ai import Credentials
-        from ibm_watsonx_ai.foundation_models import ModelInference
-        from ibm_watsonx_ai.metanames import GenTextParamsMetaNames as GenParams
 
         prompt = build_bob_prompt(
             incident=incident,
@@ -109,29 +149,37 @@ class BobClient:
             url=self.url,
         )
 
-        params = {
-            GenParams.DECODING_METHOD: "greedy",
-            GenParams.MAX_NEW_TOKENS: 1800,
-            GenParams.MIN_NEW_TOKENS: 1,
-            GenParams.REPETITION_PENALTY: 1.05,
-        }
-
         model = ModelInference(
             model_id=self.model_id,
             credentials=credentials,
             project_id=self.project_id,
+        )
+
+        params = {
+            ChatParams.MAX_TOKENS: 1800,
+            ChatParams.TEMPERATURE: 0.2,
+            ChatParams.TOP_P: 0.9,
+            ChatParams.TIME_LIMIT: 60000,
+        }
+
+        response = model.chat(
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are IBM Bob, a cybersecurity reasoning assistant. "
+                        "Return valid JSON only. Do not wrap the JSON in markdown."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
             params=params,
         )
 
-        generated_text = model.generate_text(prompt=prompt)
-
-        if isinstance(generated_text, str):
-            return generated_text
-
-        if isinstance(generated_text, dict):
-            return json.dumps(generated_text)
-
-        return str(generated_text)
+        return self._extract_chat_content(response)
 
     def _parse_json_response(self, response_text: str) -> dict[str, Any]:
         cleaned = response_text.strip()

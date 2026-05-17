@@ -142,6 +142,7 @@ async def run_bob_reasoning_background(incident: dict[str, Any]) -> None:
                 "files_to_change": ["src/api_server.py", "src/ai_engine/bob_client.py"],
             },
             "memory_saved": False,
+            "saved_memory_id": None,
         }
 
     await ws_manager.broadcast(
@@ -149,6 +150,14 @@ async def run_bob_reasoning_background(incident: dict[str, Any]) -> None:
             "type": "bob_analysis",
             "incident_id": incident_id,
             "analysis": analysis,
+        }
+    )
+
+    await ws_manager.broadcast(
+        {
+            "type": "memory_updated",
+            "memories": ai_memory_store.list_memories(),
+            "count": len(ai_memory_store.list_memories()),
         }
     )
 
@@ -181,11 +190,15 @@ def run_bob_reasoning_for_incident(
         bob_analysis_store["memory_saved"] = False
         bob_analysis_store["saved_memory_id"] = None
 
+    # Save the incident again because related_memory was attached.
+    upsert_incident(incident)
+
     return bob_analysis_store
 
 def build_finding_from_attack_event(event: dict[str, Any]) -> dict[str, Any]:
     endpoint = event.get("endpoint", "/api/v1/export-users")
     source_ip = event.get("source_ip", "unknown")
+    event_type = event.get("event_type", "runtime_attack_event")
 
     return {
         "finding_id": f"FIND-{uuid4().hex[:8]}",
@@ -199,11 +212,20 @@ def build_finding_from_attack_event(event: dict[str, Any]) -> dict[str, Any]:
         "endpoint": endpoint,
         "database_table": event.get("database_table", "users"),
         "evidence": (
-            f"Suspicious repeated access to deprecated endpoint {endpoint} "
+            f"Suspicious event {event_type} on endpoint {endpoint} "
             f"from source IP {source_ip}"
         ),
         "masked_value": None,
         "timestamp": utc_now(),
+
+        # Important for AI memory and Bob context
+        "event_type": event_type,
+        "action": event.get("action"),
+        "status": event.get("status"),
+        "source_ip": source_ip,
+        "rows_returned": event.get("rows_returned"),
+        "query": event.get("query"),
+        "metadata": event.get("metadata", {}),
     }
 
 
@@ -364,37 +386,30 @@ def upsert_findings(findings: list[dict[str, Any]]) -> None:
 async def publish_detected_incident(incident: dict[str, Any]) -> None:
     """
     Use this whenever an attack/new incident is detected outside manual scan.
-    This is what makes Bob react to attacks automatically.
+    This version supports AI memory.
     """
-    global bob_analysis_store
-
     incident_id = incident.get("incident_id", "INC-UNKNOWN")
     incident_findings = incident.get("findings", [])
 
     if not isinstance(incident_findings, list):
         incident_findings = []
 
+    attach_related_memory(incident)
+
     upsert_incident(incident)
     upsert_findings(incident_findings)
-
-    bob_analysis_store = bob_client.analyze_incident(incident)
 
     await ws_manager.broadcast(
         {
             "type": "attack_detected",
             "incident": incident,
             "findings": incident_findings,
-            "bob_analysis": bob_analysis_store,
+            "bob_analysis": None,
+            "bob_status": "running",
         }
     )
 
-    await ws_manager.broadcast(
-        {
-            "type": "bob_analysis",
-            "incident_id": incident_id,
-            "analysis": bob_analysis_store,
-        }
-    )
+    asyncio.create_task(run_bob_reasoning_background(incident))
 
 
 @app.websocket("/ws")
@@ -690,7 +705,7 @@ async def ingest_attack_event(event: dict[str, Any]) -> dict[str, Any]:
         "bob_status": "running",
         "related_memory_count": len(incident.get("related_memory", [])),
     }
-    
+
 @app.get("/api/memory")
 def get_ai_memory() -> dict[str, Any]:
     memories = ai_memory_store.list_memories()
