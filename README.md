@@ -115,11 +115,12 @@ python src/api_server.py
 # Terminal 2 - Frontend Dashboard
 cd frontend
 npm run dev
-http://localhost:8080/
 
 # Terminal 3 - Attack Simulator (For real time attack)
 python runtime_lab/attack_simulator.py --backend-url http://localhost:8000 --endpoint /api/v1/export-users --count 5 --delay 1
 ```
+### Start the program
+http://localhost:8080/
 
 ### With IBM Watson Integration
 ```bash
