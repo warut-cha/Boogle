@@ -107,18 +107,6 @@ cd ..
 
 ### Running the Full System (Dashboard + API)
 
-**Option 1: Automated Startup (Recommended)**
-```bash
-# Start both backend API and frontend dashboard
-./start_services.sh
-```
-
-Then open your browser to:
-- 📊 **Dashboard:** http://localhost:5173
-- 🔌 **API:** http://localhost:8000
-- 💚 **Health Check:** http://localhost:8000/api/health
-
-**Option 2: Manual Startup**
 ```bash
 # Terminal 1 - Backend API
 source venv/bin/activate
@@ -127,27 +115,9 @@ python src/api_server.py
 # Terminal 2 - Frontend Dashboard
 cd frontend
 npm run dev
-```
 
-### CLI Usage (Without Dashboard)
-```bash
-# Run full security analysis
-python src/main.py analyze --path ./mock-repos
-
-# Analyze with Bob AI reasoning
-python src/main.py analyze --path ./mock-repos --use-bob
-
-# Generate incident report
-python src/main.py report --incident-id INC-2026-001
-
-# View AI memory
-python src/main.py memory --list
-
-# Run security tests
-python src/main.py test --path ./mock-repos
-
-# Export findings as JSON
-python src/main.py export --format json --output findings.json
+# Terminal 3 - Attack Simulator (For real time attack)
+python runtime_lab/attack_simulator.py --backend-url http://localhost:8000 --endpoint /api/v1/export-users --count 5 --delay 1
 ```
 
 ### With IBM Watson Integration
@@ -155,9 +125,6 @@ python src/main.py export --format json --output findings.json
 # Set IBM Watson credentials
 export IBM_WATSON_API_KEY="your-api-key"
 export IBM_WATSON_URL="your-watson-url"
-
-# Run analysis with Watson
-python src/main.py analyze --path ./mock_data/repos --use-ibm-watson
 ```
 
 ## 📊 Example Output
