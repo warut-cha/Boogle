@@ -1,0 +1,20 @@
+{
+  "generated_at": "2026-05-16T14:24:41.890254",
+  "total_incidents": 1,
+  "severity_distribution": {
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 0,
+    "5": 1
+  },
+  "incidents": [
+    {
+      "id": null,
+      "title": "Possible credential leakage through exposed abandoned export API",
+      "severity": "critical",
+      "type": null,
+      "finding_count": 0
+    }
+  ]
+}

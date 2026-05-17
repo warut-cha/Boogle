@@ -1,0 +1,178 @@
+{
+  "incident_id": "INC-001",
+  "title": "Possible credential leakage through exposed abandoned export API",
+  "severity": "critical",
+  "severity_level": 5,
+  "confidence_score": 0.88,
+  "confidence_reasons": [
+    "Hardcoded API key found in legacy code",
+    "Deprecated export endpoint is still reachable",
+    "Suspicious repeated access detected in logs",
+    "Users table showed abnormal read activity"
+  ],
+  "confidence_limitations": [
+    "No confirmed external exfiltration destination found",
+    "Unable to verify if data was actually exported"
+  ],
+  "affected_repos": [
+    "legacy-backend",
+    "infra-config"
+  ],
+  "affected_files": [
+    "legacy/old_export_api.py",
+    "gateway.yml"
+  ],
+  "affected_endpoints": [
+    "/api/v1/export-users"
+  ],
+  "affected_database_tables": [
+    "users"
+  ],
+  "findings": [
+    {
+      "finding_id": "FIND-001",
+      "repo_name": "legacy-backend",
+      "finding_type": "hardcoded_secret",
+      "category": "secret_exposure",
+      "severity_hint": "high",
+      "source": "rust_scanner",
+      "file": "legacy/old_export_api.py",
+      "line": 12,
+      "endpoint": "/api/v1/export-users",
+      "database_table": null,
+      "evidence": "Possible API key detected: sk_test_****92fa",
+      "masked_value": "sk_test_****92fa",
+      "timestamp": "2026-05-16T12:00:00Z"
+    },
+    {
+      "finding_id": "FIND-002",
+      "repo_name": "legacy-backend",
+      "finding_type": "deprecated_api",
+      "category": "legacy_api",
+      "severity_hint": "medium",
+      "source": "python_analyzer",
+      "file": "legacy/old_export_api.py",
+      "line": 25,
+      "endpoint": "/api/v1/export-users",
+      "database_table": null,
+      "evidence": "Deprecated API endpoint still accessible",
+      "masked_value": null,
+      "timestamp": "2026-05-16T12:01:00Z"
+    },
+    {
+      "finding_id": "FIND-003",
+      "repo_name": "legacy-backend",
+      "finding_type": "runtime_anomaly",
+      "category": "runtime_behavior",
+      "severity_hint": "high",
+      "source": "mock_data",
+      "file": null,
+      "line": null,
+      "endpoint": "/api/v1/export-users",
+      "database_table": null,
+      "evidence": "Repeated access to deprecated endpoint from suspicious IP",
+      "masked_value": null,
+      "timestamp": "2026-05-16T12:05:00Z"
+    },
+    {
+      "finding_id": "FIND-004",
+      "repo_name": "legacy-backend",
+      "finding_type": "database_anomaly",
+      "category": "database_activity",
+      "severity_hint": "high",
+      "source": "mock_data",
+      "file": null,
+      "line": null,
+      "endpoint": null,
+      "database_table": "users",
+      "evidence": "Users table read spike: 10x normal baseline",
+      "masked_value": null,
+      "timestamp": "2026-05-16T12:06:00Z"
+    },
+    {
+      "finding_id": "FIND-005",
+      "repo_name": "infra-config",
+      "finding_type": "infrastructure_risk",
+      "category": "infrastructure",
+      "severity_hint": "medium",
+      "source": "rust_scanner",
+      "file": "gateway.yml",
+      "line": 45,
+      "endpoint": "/api/v1/export-users",
+      "database_table": null,
+      "evidence": "Old export endpoint still exposed in gateway config",
+      "masked_value": null,
+      "timestamp": "2026-05-16T12:02:00Z"
+    }
+  ],
+  "attack_path": {
+    "nodes": [
+      {
+        "id": "secret",
+        "label": "Hardcoded API Key",
+        "type": "secret"
+      },
+      {
+        "id": "old_api",
+        "label": "Abandoned Export API",
+        "type": "api"
+      },
+      {
+        "id": "traffic",
+        "label": "Suspicious Requests",
+        "type": "runtime"
+      },
+      {
+        "id": "db",
+        "label": "Users Table Read Spike",
+        "type": "database"
+      },
+      {
+        "id": "leak",
+        "label": "Possible Data Leak",
+        "type": "impact"
+      }
+    ],
+    "edges": [
+      {
+        "from": "secret",
+        "to": "old_api",
+        "label": "used by"
+      },
+      {
+        "from": "old_api",
+        "to": "traffic",
+        "label": "targeted by"
+      },
+      {
+        "from": "traffic",
+        "to": "db",
+        "label": "accesses"
+      },
+      {
+        "from": "db",
+        "to": "leak",
+        "label": "may expose"
+      }
+    ]
+  },
+  "related_memory": [
+    {
+      "memory_type": "incident_pattern",
+      "incident_pattern": "hardcoded_secret_in_abandoned_api",
+      "root_cause": "Legacy API with static credentials remained accessible without proper deprecation",
+      "signals_to_watch": [
+        "Hardcoded credentials in legacy code",
+        "Deprecated endpoints still accessible",
+        "Repeated requests to old API versions"
+      ],
+      "prevention_rule": "Flag abandoned APIs with static credentials. Implement API versioning with sunset policies.",
+      "recommended_tests": [
+        "Deprecated endpoints return 410 Gone",
+        "Export endpoints require admin authentication",
+        "Secrets loaded from environment variables"
+      ]
+    }
+  ],
+  "timestamp": "2026-05-16T12:10:00Z"
+}

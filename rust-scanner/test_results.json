@@ -1,0 +1,82 @@
+[
+  {
+    "finding_id": "FIND-001",
+    "repo_name": "legacy-backend",
+    "finding_type": "hardcoded_secret",
+    "category": "secret_exposure",
+    "severity_hint": "high",
+    "source": "rust_scanner",
+    "file": "../mock-repos/legacy-backend/legacy/old_export_api.py",
+    "line": 11,
+    "evidence": "Possible API Key detected",
+    "masked_value": "sk_t****92fa",
+    "timestamp": "2026-05-16T12:27:10.127582600Z"
+  },
+  {
+    "finding_id": "FIND-002",
+    "repo_name": "legacy-backend",
+    "finding_type": "hardcoded_secret",
+    "category": "secret_exposure",
+    "severity_hint": "high",
+    "source": "rust_scanner",
+    "file": "../mock-repos/legacy-backend/legacy/old_export_api.py",
+    "line": 12,
+    "evidence": "Possible Secret Key detected",
+    "masked_value": "prod****92jd",
+    "timestamp": "2026-05-16T12:27:10.127621500Z"
+  },
+  {
+    "finding_id": "FIND-003",
+    "repo_name": "legacy-backend",
+    "finding_type": "database_url",
+    "category": "secret_exposure",
+    "severity_hint": "critical",
+    "source": "rust_scanner",
+    "file": "../mock-repos/legacy-backend/legacy/old_export_api.py",
+    "line": 39,
+    "evidence": "Possible Database URL with credentials detected",
+    "masked_value": "****",
+    "timestamp": "2026-05-16T12:27:10.127675200Z"
+  },
+  {
+    "finding_id": "FIND-004",
+    "repo_name": "legacy-backend",
+    "finding_type": "deprecated_api",
+    "category": "legacy_api",
+    "severity_hint": "medium",
+    "source": "rust_scanner",
+    "file": "../mock-repos/legacy-backend/legacy/old_export_api.py",
+    "line": 14,
+    "endpoint": "/api/v1/export-users",
+    "evidence": "Deprecated API v1 found",
+    "masked_value": "/api/v1/export-users",
+    "timestamp": "2026-05-16T12:27:10.128006300Z"
+  },
+  {
+    "finding_id": "FIND-005",
+    "repo_name": "legacy-backend",
+    "finding_type": "deprecated_api",
+    "category": "legacy_api",
+    "severity_hint": "high",
+    "source": "rust_scanner",
+    "file": "../mock-repos/legacy-backend/legacy/old_export_api.py",
+    "line": 14,
+    "endpoint": "/api/v1/export-users",
+    "evidence": "Export endpoint found",
+    "masked_value": "/api/v1/export-users",
+    "timestamp": "2026-05-16T12:27:10.128018300Z"
+  },
+  {
+    "finding_id": "FIND-031",
+    "repo_name": "frontend-app",
+    "finding_type": "sensitive_log_exposure",
+    "category": "logging",
+    "severity_hint": "low",
+    "source": "rust_scanner",
+    "file": "../mock-repos/frontend-app/src/api/client.ts",
+    "line": 35,
+    "evidence": "Debug logging in production code: sensitive data",
+    "masked_value": "console.debug(",
+    "timestamp": "2026-05-16T12:27:10.132638300Z"
+  }
+]
