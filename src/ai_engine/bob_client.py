@@ -234,7 +234,6 @@ class BobClient:
                 )
             ),
             "ai_memory": self._ensure_ai_memory_shape(output.get("ai_memory")),
-            "pr_draft": self._ensure_pr_draft_shape(output.get("pr_draft")),
         }
 
     def _ensure_ai_memory_shape(self, memory: Any) -> dict[str, Any]:
@@ -255,24 +254,6 @@ class BobClient:
             "severity_escalation_conditions": self._as_list(
                 memory.get("severity_escalation_conditions")
             ),
-        }
-
-    def _ensure_pr_draft_shape(self, pr_draft: Any) -> dict[str, Any]:
-        if not isinstance(pr_draft, dict):
-            pr_draft = {}
-
-        return {
-            "branch_name": str(
-                pr_draft.get("branch_name", "security/bob-analysis-unavailable")
-            ),
-            "pr_title": str(pr_draft.get("pr_title", "Security analysis unavailable")),
-            "pr_description": str(
-                pr_draft.get(
-                    "pr_description",
-                    "IBM Bob did not return a pull request draft.",
-                )
-            ),
-            "files_to_change": self._as_list(pr_draft.get("files_to_change")),
         }
 
     def _as_list(self, value: Any) -> list[Any]:
@@ -330,18 +311,5 @@ class BobClient:
                 ),
                 "recommended_tests": [],
                 "severity_escalation_conditions": [],
-            },
-            "pr_draft": {
-                "branch_name": "security/configure-watsonx",
-                "pr_title": "Configure IBM watsonx.ai for Bob reasoning",
-                "pr_description": (
-                    "IBM Bob analysis could not run because watsonx.ai SDK or "
-                    "configuration was unavailable."
-                ),
-                "files_to_change": [
-                    ".env.example",
-                    "requirements.txt",
-                    "src/ai_engine/bob_client.py",
-                ],
             },
         }
