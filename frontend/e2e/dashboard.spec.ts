@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-test.describe('Bob Sentinel Dashboard', () => {
+test.describe('Jeff Dashboard', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('http://localhost:3000')
     // Wait for loading to finish
@@ -8,7 +8,7 @@ test.describe('Bob Sentinel Dashboard', () => {
   })
 
   test('page title and header are visible', async ({ page }) => {
-    await expect(page.getByText('Bob Sentinel')).toBeVisible()
+    await expect(page.getByText('Jeff')).toBeVisible()
     await expect(page.getByText('Autonomous DevSecOps Assistant')).toBeVisible()
   })
 

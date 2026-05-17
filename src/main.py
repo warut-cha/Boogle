@@ -17,6 +17,7 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 import yaml
+import json
 from datetime import datetime
 
 # Import core modules (will be implemented)
@@ -77,7 +78,7 @@ def analyze(path, use_bob, use_ibm_watson, use_mock, output, format, severity_th
         use_bob = True
     
     console.print(Panel.fit(
-        "[bold cyan]🔍 Bob Sentinel Security Analysis Started[/bold cyan]",
+        "[bold cyan]🔍 Jeff Security Analysis Started[/bold cyan]",
         border_style="cyan"
     ))
     
@@ -142,12 +143,54 @@ def analyze(path, use_bob, use_ibm_watson, use_mock, output, format, severity_th
                 reasoning_engine = ReasoningEngine(CONFIG['ai_engine'])
                 incidents = reasoning_engine.enhance_analysis(incidents)
                 progress.update(task, completed=True)
+                
+                # Step 6a: Generate security tests from Bob output
+                task = progress.add_task("[cyan]Generating security tests...", total=None)
+                from remediators.test_generator import TestGenerator
+                test_generator = TestGenerator(CONFIG.get('test_generation', {'output_directory': './generated_tests'}))
+                test_summary = test_generator.generate_test_suite(incidents)
+                progress.update(task, completed=True)
+                console.print(f"[green]✓ Generated {test_summary.get('test_count', 0)} security tests[/green]")
+                
+                # Step 6b: Generate PR drafts from Bob output
+                task = progress.add_task("[cyan]Generating PR drafts...", total=None)
+                from remediators.pr_draft_generator import PRDraftGenerator
+                pr_generator = PRDraftGenerator(CONFIG.get('pr_generation', {'output_directory': './generated_reports'}))
+                pr_drafts = pr_generator.generate_pr_drafts_batch(incidents)
+                progress.update(task, completed=True)
+                console.print(f"[green]✓ Generated {len(pr_drafts)} PR drafts[/green]")
             
             # Step 7: Generate reports
             task = progress.add_task("[cyan]Generating reports...", total=None)
             reporter = IncidentReporter(CONFIG['reporting'])
             report_paths = reporter.generate_reports(incidents, output, format)
             progress.update(task, completed=True)
+            
+            # Step 7.5: Save data for API server
+            task = progress.add_task("[cyan]Saving data for API...", total=None)
+            output_path = Path(output)
+            output_path.mkdir(parents=True, exist_ok=True)
+            
+            # Save findings
+            with open(output_path / "findings.json", 'w', encoding='utf-8') as f:
+                json.dump(findings, f, indent=2, ensure_ascii=False)
+            
+            # Save incidents
+            with open(output_path / "incidents.json", 'w', encoding='utf-8') as f:
+                json.dump(incidents, f, indent=2, ensure_ascii=False)
+            
+            # Save Bob outputs
+            if use_bob:
+                bob_outputs = {}
+                for incident in incidents:
+                    if 'bob_analysis' in incident:
+                        bob_outputs[incident['incident_id']] = incident['bob_analysis']
+                
+                with open(output_path / "bob_outputs.json", 'w', encoding='utf-8') as f:
+                    json.dump(bob_outputs, f, indent=2, ensure_ascii=False)
+            
+            progress.update(task, completed=True)
+            console.print(f"[green]✓ Saved API data to {output}/[/green]")
             
             # Step 8: Update AI memory
             if use_bob:

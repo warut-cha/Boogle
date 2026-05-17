@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BobInput",
+  "description": "Input for IBM Bob AI reasoning",
+  "type": "object",
+  "required": [
+    "incident",
+    "attack_path",
+    "confidence",
+    "related_memory",
+    "requested_outputs"
+  ],
+  "properties": {
+    "incident": {
+      "$ref": "incident.schema.json"
+    },
+    "attack_path": {
+      "type": "object",
+      "properties": {
+        "nodes": { "type": "array" },
+        "edges": { "type": "array" }
+      }
+    },
+    "confidence": {
+      "type": "object",
+      "required": ["score", "reasons", "limitations"],
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "reasons": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "limitations": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "related_memory": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "requested_outputs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "attack_explanation",
+          "target_analysis",
+          "fix_plan",
+          "security_tests",
+          "incident_report",
+          "ai_memory",
+          "pr_draft"
+        ]
+      }
+    }
+  }
+}

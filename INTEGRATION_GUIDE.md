@@ -1,113 +1,52 @@
-# Bob Sentinel - Frontend-Backend Integration Guide
+# Jeff Integration Guide
 
-## 🎯 Overview
+## Overview
 
-This guide explains how the Bob Sentinel frontend dashboard connects to the backend API server.
+This guide explains how all components of Jeff work together to provide end-to-end security analysis.
 
-## 🏗️ Architecture
+## Architecture Flow
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Frontend (React + Vite)                  │
-│                    http://localhost:5173                     │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │  Dashboard UI Components                              │  │
-│  │  - OverviewCards                                      │  │
-│  │  - FindingsTable                                      │  │
-│  │  - IncidentDetail                                     │  │
-│  │  - BobAnalysis                                        │  │
-│  │  - AttackPathGraph                                    │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                           ↓                                  │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │  API Client (axios)                                   │  │
-│  │  - getFindings()                                      │  │
-│  │  - getIncidents()                                     │  │
-│  │  - getBobAnalysis()                                   │  │
-│  └──────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-                           ↓ HTTP/REST
-┌─────────────────────────────────────────────────────────────┐
-│                   Backend API (Flask)                        │
-│                   http://localhost:8000                      │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │  REST API Endpoints                                   │  │
-│  │  GET  /api/health                                     │  │
-│  │  GET  /api/findings                                   │  │
-│  │  GET  /api/incidents                                  │  │
-│  │  GET  /api/incidents/:id                              │  │
-│  │  POST /api/incidents/:id/analyze-with-bob             │  │
-│  │  POST /api/analyze                                    │  │
-│  │  GET  /api/memory                                     │  │
-│  │  GET  /api/stats                                      │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                           ↓                                  │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │  Analysis Pipeline                                    │  │
-│  │  - RustScannerClient                                  │  │
-│  │  - IncidentCorrelator                                 │  │
-│  │  - SeverityClassifier                                 │  │
-│  │  - ConfidenceScorer                                   │  │
-│  │  - AttackPathBuilder                                  │  │
-│  │  - ReasoningEngine (IBM Bob)                          │  │
-│  │  - MemoryManager                                      │  │
-│  └──────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────┐
+│  Rust Scanner   │ ──> Finds security issues in code/infra/logs
+└────────┬────────┘
+         │ JSON findings
+         ▼
+┌─────────────────┐
+│ Python Backend  │ ──> Correlates findings into incidents
+│  - Correlator   │     Calculates confidence scores
+│  - Classifier   │     Builds attack paths
+│  - Scorer       │     Retrieves similar past incidents
+└────────┬────────┘
+         │ Incident JSON
+         ▼
+┌─────────────────┐
+│  IBM Bob AI     │ ──> Explains attack
+│  Reasoning      │     Generates fixes
+│                 │     Creates security tests
+│                 │     Drafts PR
+│                 │     Learns patterns
+└────────┬────────┘
+         │ Bob Output JSON
+         ▼
+┌─────────────────┐
+│ React Dashboard │ ──> Displays findings
+│  TypeScript     │     Shows attack path
+│                 │     Presents Bob analysis
+│                 │     Visualizes memory
+└─────────────────┘
 ```
 
-## 🚀 Quick Start
+## Data Flow
 
-### Option 1: Automated Startup (Recommended)
+### 1. Rust Scanner → Python Backend
 
+**Command:**
 ```bash
-# Start both frontend and backend with one command
-./start_services.sh
+cargo run -- scan --path ../mock-repos/legacy-backend ../mock-repos/infra-config
 ```
 
-This will:
-1. Check dependencies
-2. Start backend API on port 8000
-3. Start frontend dashboard on port 5173
-4. Open your browser automatically
-
-### Option 2: Manual Startup
-
-**Terminal 1 - Backend API:**
-```bash
-# Activate virtual environment
-source venv/bin/activate  # or: source .venv/bin/activate
-
-# Start API server
-python src/api_server.py
-```
-
-**Terminal 2 - Frontend Dashboard:**
-```bash
-# Navigate to frontend directory
-cd frontend
-
-# Install dependencies (first time only)
-npm install
-
-# Start development server
-npm run dev
-```
-
-## 📡 API Endpoints
-
-### Health Check
-```http
-GET /api/health
-```
-Returns API status and version information.
-
-### Get All Findings
-```http
-GET /api/findings
-```
-Returns array of security findings from all scans.
-
-**Response:**
+**Output:** JSON array of findings
 ```json
 [
   {
@@ -119,256 +58,379 @@ Returns array of security findings from all scans.
     "source": "rust_scanner",
     "file": "legacy/old_export_api.py",
     "line": 12,
-    "evidence": "Possible API key detected",
+    "endpoint": "/api/v1/export-users",
+    "database_table": null,
+    "evidence": "Hardcoded API key detected",
+    "masked_value": "sk_test_****92fa",
     "timestamp": "2026-05-16T12:00:00Z"
   }
 ]
 ```
 
-### Get All Incidents
-```http
-GET /api/incidents
-```
-Returns array of correlated security incidents.
+**Python Integration:**
+```python
+from scanners.rust_scanner_client import RustScannerClient
 
-**Response:**
-```json
-[
-  {
-    "incident_id": "INC-001",
-    "title": "Possible credential leakage through exposed abandoned export API",
-    "severity": "critical",
-    "severity_level": 5,
-    "confidence_score": 0.88,
-    "confidence_reasons": [...],
-    "affected_repos": ["legacy-backend"],
-    "findings": [...],
-    "attack_path": {...}
-  }
-]
+scanner = RustScannerClient()
+findings = scanner.scan(paths=['./mock-repos'], use_mock=False)
 ```
 
-### Get Specific Incident
-```http
-GET /api/incidents/:incident_id
-```
-Returns detailed information about a specific incident.
+### 2. Python Backend → Incident Correlation
 
-### Analyze with Bob AI
-```http
-POST /api/incidents/:incident_id/analyze-with-bob
-```
-Runs IBM Bob AI analysis on an incident.
+**Process:**
+1. Normalize findings using `src/utils/normalizers.py`
+2. Correlate related findings into incidents
+3. Calculate confidence scores
+4. Build attack paths
+5. Retrieve similar past incidents from memory
 
-**Response:**
+**Output:** Incident JSON
 ```json
 {
-  "attack_type": "Credential leakage and abandoned API abuse",
-  "target": "User export endpoint and users database table",
+  "incident_id": "INC-001",
+  "title": "Credential leakage through exposed API",
   "severity": "critical",
-  "confidence_assessment": "High confidence (88%)...",
-  "recommended_fixes": [...],
-  "generated_security_tests": [...],
-  "incident_report": "...",
-  "ai_memory": {...},
-  "pr_draft": {...}
+  "severity_level": 5,
+  "confidence_score": 0.88,
+  "confidence_reasons": ["Hardcoded key found", "Suspicious access detected"],
+  "confidence_limitations": ["No confirmed exfiltration"],
+  "affected_repos": ["legacy-backend"],
+  "affected_files": ["legacy/old_export_api.py"],
+  "affected_endpoints": ["/api/v1/export-users"],
+  "affected_database_tables": ["users"],
+  "findings": [...],
+  "attack_path": {
+    "nodes": [...],
+    "edges": [...]
+  },
+  "related_memory": [...]
 }
 ```
 
-### Run New Analysis
-```http
-POST /api/analyze
-Content-Type: application/json
+### 3. IBM Bob AI Analysis
 
-{
-  "paths": ["/path/to/scan"],
-  "use_mock": true,
-  "use_bob": true
-}
-```
+**Input:** Incident + Attack Path + Related Memory
 
-### Get AI Memory
-```http
-GET /api/memory
-```
-Returns all AI memory entries (learned security patterns).
+**Process:**
+1. Build Bob input with context
+2. Call Bob reasoning engine
+3. Generate comprehensive analysis
 
-### Get Statistics
-```http
-GET /api/stats
-```
-Returns system statistics.
-
-## 🔧 Configuration
-
-### Backend Configuration
-
-**File:** `config/config.yaml`
-
-Key settings:
-```yaml
-database:
-  type: mongodb  # or sqlite
-  host: localhost
-  port: 27017
-
-ai_engine:
-  local_models:
-    enabled: true
-  bob:
-    enabled: true
-```
-
-### Frontend Configuration
-
-**File:** `frontend/.env`
-
-```env
-VITE_API_BASE_URL=http://localhost:8000
-```
-
-**File:** `frontend/src/api/client.ts`
-
-```typescript
-// Toggle between mock and real API
-const USE_MOCK_DATA = false;  // false = use real backend
-```
-
-## 🔄 Data Flow
-
-1. **User opens dashboard** → Frontend loads
-2. **Dashboard requests data** → `apiClient.getFindings()`
-3. **API receives request** → `/api/findings`
-4. **Backend scans repos** → RustScannerClient
-5. **Findings returned** → JSON response
-6. **Dashboard displays** → FindingsTable component
-
-## 🐛 Troubleshooting
-
-### Frontend can't connect to backend
-
-**Problem:** Network error or CORS issues
-
-**Solution:**
-```bash
-# Check if backend is running
-curl http://localhost:8000/api/health
-
-# Check CORS is enabled in src/api_server.py
-# Should see: CORS(app)
-```
-
-### Backend returns empty data
-
-**Problem:** No findings or incidents in cache
-
-**Solution:**
-```bash
-# Run a scan first
-curl -X POST http://localhost:8000/api/analyze \
-  -H "Content-Type: application/json" \
-  -d '{"paths": ["./mock-repos"], "use_mock": true}'
-```
-
-### Mock data still showing
-
-**Problem:** `USE_MOCK_DATA = true` in client.ts
-
-**Solution:**
-```typescript
-// frontend/src/api/client.ts
-const USE_MOCK_DATA = false;  // Change to false
-```
-
-### Port already in use
-
-**Problem:** Port 8000 or 5173 is occupied
-
-**Solution:**
-```bash
-# Find and kill process on port 8000
-lsof -ti:8000 | xargs kill -9
-
-# Or change port in api_server.py
-app.run(host='0.0.0.0', port=8001, debug=True)
-```
-
-## 🧪 Testing the Integration
-
-### 1. Health Check
-```bash
-curl http://localhost:8000/api/health
-```
-
-Expected response:
+**Output:** Bob Output JSON
 ```json
 {
-  "status": "healthy",
-  "service": "Bob Sentinel API",
-  "version": "1.0.0"
+  "attack_type": "Credential leakage and API abuse",
+  "target": "User export endpoint",
+  "severity": "critical",
+  "confidence_assessment": "High confidence (0.88)...",
+  "recommended_fixes": [
+    {
+      "type": "immediate_action",
+      "description": "Rotate exposed API key immediately"
+    },
+    {
+      "type": "code_fix",
+      "description": "Move API key to environment variable"
+    }
+  ],
+  "generated_security_tests": [
+    {
+      "file": "tests/test_export_api_security.py",
+      "name": "test_export_endpoint_requires_admin",
+      "purpose": "Ensure only admin users can access export",
+      "code": "def test_export_endpoint_requires_admin(...):\n    ..."
+    }
+  ],
+  "incident_report": "## Incident Report...",
+  "ai_memory": {
+    "memory_type": "security_prevention_rule",
+    "incident_pattern": "hardcoded_secret_in_abandoned_api",
+    "root_cause": "Legacy API with static credentials",
+    "signals_to_watch": [...],
+    "prevention_rule": "Flag abandoned APIs with credentials",
+    "recommended_tests": [...]
+  },
+  "pr_draft": {
+    "branch_name": "security/fix-inc-001",
+    "pr_title": "Security: Fix credential leakage",
+    "pr_description": "## Security Fix...",
+    "files_to_change": [...]
+  }
 }
 ```
 
-### 2. Get Findings
-```bash
-curl http://localhost:8000/api/findings
+### 4. Generated Artifacts
+
+**Security Tests:** Saved to `generated_tests/`
+- `test_export_api_security.py`
+- `test_secrets_detection.py`
+- `test_database_access_controls.py`
+- `run_security_tests.py` (test suite runner)
+
+**PR Drafts:** Saved to `generated_reports/`
+- `PR_DRAFT_security-fix-inc-001_INC-001.md`
+- `GIT_COMMANDS_security-fix-inc-001_INC-001.sh`
+
+**Incident Reports:** Saved to `generated_reports/`
+- `INC-001_report.md`
+- `INC-001_report.json`
+
+### 5. Frontend Display
+
+**API Client:** `frontend/src/api/client.ts`
+```typescript
+// Fetch incidents
+const incidents = await apiClient.getIncidents();
+
+// Fetch Bob analysis for specific incident
+const bobOutput = await apiClient.getBobAnalysis(incidentId);
 ```
 
-### 3. Get Incidents
+**Components:**
+- `FindingsTable` - Shows all findings
+- `IncidentDetail` - Displays incident information
+- `AttackPathGraph` - Visualizes attack chain
+- `BobAnalysis` - Shows AI reasoning and fixes
+- `MemoryViewer` - Displays learned patterns
+- `PRDraftViewer` - Shows generated PR
+
+## Setup Instructions
+
+### 1. Install Dependencies
+
+**Rust Scanner:**
 ```bash
-curl http://localhost:8000/api/incidents
+cd rust-scanner
+cargo build --release
 ```
 
-### 4. Run Bob Analysis
+**Python Backend:**
 ```bash
-curl -X POST http://localhost:8000/api/incidents/INC-001/analyze-with-bob
+pip install -r requirements.txt
 ```
 
-## 📊 Monitoring
-
-### Backend Logs
+**Frontend:**
 ```bash
-# Watch API server logs
-tail -f logs/security_analyst.log
+cd frontend
+npm install
 ```
 
-### Frontend Console
-Open browser DevTools (F12) → Console tab to see:
-- API requests
-- Response data
-- Error messages
+### 2. Verify Integration
 
-## 🔒 Security Considerations
+Run the integration check script:
+```bash
+python scripts/integration_check.py
+```
 
-1. **CORS:** Enabled for development, restrict in production
-2. **API Keys:** Store in environment variables, not in code
-3. **Rate Limiting:** Add rate limiting for production
-4. **Authentication:** Add JWT or OAuth for production
-5. **HTTPS:** Use HTTPS in production
+This verifies:
+- ✓ Rust scanner builds
+- ✓ Contract files are valid JSON
+- ✓ Python backend files exist
+- ✓ Frontend builds successfully
+- ✓ Data structures match across components
 
-## 📚 Additional Resources
+### 3. Run End-to-End Test
 
-- [Backend API Documentation](docs/API.md)
-- [Frontend Component Guide](frontend/README.md)
-- [Architecture Overview](ARCHITECTURE.md)
-- [User Guide](docs/USER_GUIDE.md)
+**Option A: CLI Mode (Recommended for Hackathon)**
 
-## 🤝 Contributing
+```bash
+# Run full analysis with mock data
+python src/main.py analyze --path ./mock-repos --use-mock --use-bob
 
-When adding new API endpoints:
+# Check outputs
+ls generated_tests/      # Security tests
+ls generated_reports/    # PR drafts and reports
+```
 
-1. Add endpoint to `src/api_server.py`
-2. Add corresponding method to `frontend/src/api/client.ts`
-3. Update TypeScript types in `frontend/src/api/types.ts`
-4. Update this documentation
+**Option B: API Mode (Future)**
 
-## 📞 Support
+```bash
+# Start backend API
+python src/api_server.py
 
-For issues or questions:
-- Check troubleshooting section above
-- Review logs in `logs/` directory
-- Open an issue on GitHub
+# Start frontend dev server
+cd frontend
+npm run dev
+
+# Open browser to http://localhost:5173
+```
+
+## Key Integration Points
+
+### 1. Rust ↔ Python
+
+**File:** `src/scanners/rust_scanner_client.py`
+
+**Critical:** Both must use `--path` flag (not `--paths`)
+
+```python
+cmd = ["cargo", "run", "--", "scan", "--path"] + paths
+```
+
+### 2. Python ↔ Contracts
+
+**Files:** `contracts/*.json`
+
+**Critical:** All JSON must match schemas
+
+Use normalizers to handle old/new formats:
+```python
+from utils.normalizers import normalize_finding, normalize_incident
+
+normalized_finding = normalize_finding(raw_finding)
+```
+
+### 3. Python ↔ Frontend
+
+**Files:** 
+- Backend: `src/main.py`, incident JSON output
+- Frontend: `frontend/src/api/types.ts`
+
+**Critical:** Field names must match (use snake_case)
+
+```typescript
+// TypeScript types match Python JSON
+export type Finding = {
+  finding_id: string;
+  finding_type: string;
+  severity_hint: string;
+  // ...
+}
+```
+
+### 4. Bob Output → Generated Files
+
+**Files:**
+- `src/remediators/test_generator.py`
+- `src/remediators/pr_draft_generator.py`
+
+**Critical:** Bob output must include:
+- `generated_security_tests[]`
+- `pr_draft{}`
+
+These are automatically saved when `--use-bob` flag is used.
+
+## Troubleshooting
+
+### Rust Scanner Issues
+
+**Problem:** `cargo check` fails
+```bash
+cd rust-scanner
+cargo clean
+cargo check
+```
+
+**Problem:** Python can't call Rust scanner
+- Verify `--path` flag (not `--paths`)
+- Check Cargo.toml has correct binary name
+
+### Contract Issues
+
+**Problem:** JSON parsing errors
+```bash
+# Validate JSON
+python -m json.tool contracts/sample_findings.json
+```
+
+**Problem:** Missing fields
+- Use normalizers: `from utils.normalizers import normalize_finding`
+- Check contract schemas
+
+### Frontend Issues
+
+**Problem:** TypeScript errors
+```bash
+cd frontend
+npm run build
+```
+
+**Problem:** Types don't match backend
+- Ensure `frontend/src/api/types.ts` matches Python JSON
+- Use snake_case for all fields
+
+### Integration Issues
+
+**Problem:** Data not flowing end-to-end
+```bash
+# Run integration check
+python scripts/integration_check.py
+
+# Check each step
+python src/main.py analyze --path ./mock-repos --use-mock --use-bob
+```
+
+## Testing the Full Flow
+
+### Quick Test (5 minutes)
+
+```bash
+# 1. Verify Rust scanner
+cd rust-scanner && cargo check && cd ..
+
+# 2. Run integration check
+python scripts/integration_check.py
+
+# 3. Run analysis with mock data
+python src/main.py analyze --path ./mock-repos --use-mock --use-bob
+
+# 4. Check outputs
+ls generated_tests/
+ls generated_reports/
+
+# 5. Build frontend
+cd frontend && npm run build && cd ..
+```
+
+### Full Demo (10 minutes)
+
+```bash
+# 1. Run backend analysis
+python src/main.py analyze \
+  --path ./mock-repos \
+  --use-mock \
+  --use-bob \
+  --output ./output \
+  --format markdown json
+
+# 2. Start frontend
+cd frontend
+npm run dev
+
+# 3. Open browser to http://localhost:5173
+
+# 4. Verify dashboard shows:
+#    - Findings table
+#    - Incident details
+#    - Attack path graph
+#    - Bob analysis
+#    - Generated tests
+#    - PR draft
+```
+
+## Success Criteria
+
+✅ **Integration is working when:**
+
+1. Rust scanner outputs valid JSON findings
+2. Python backend creates incidents with attack paths
+3. Bob generates fixes, tests, and PR drafts
+4. Generated tests are saved to `generated_tests/`
+5. PR drafts are saved to `generated_reports/`
+6. Frontend builds without TypeScript errors
+7. Dashboard displays all incident information
+8. Integration check script passes all tests
+
+## Next Steps
+
+After integration is verified:
+
+1. **Add Real Bob API:** Replace mock Bob with actual IBM watsonx.ai API
+2. **Add Backend API:** Create FastAPI endpoints for frontend
+3. **Add Database:** Store incidents and memory persistently
+4. **Add Authentication:** Secure the dashboard
+5. **Add CI/CD:** Automate testing and deployment
 
 ---
 
-**Made with ❤️ by Bob**
+*Generated for IBM Jeff Hackathon*

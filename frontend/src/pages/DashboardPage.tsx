@@ -1,481 +1,625 @@
-import { useState, useEffect } from 'react';
-import { apiClient, SCENARIOS } from '../api/client';
-import type { Incident, Finding, BobOutput } from '../api/types';
-import OverviewCards from '../components/OverviewCards';
-import FindingsTable from '../components/FindingsTable';
-import IncidentDetail from '../components/IncidentDetail';
-import AttackPathGraph from '../components/AttackPathGraph';
-import BobAnalysis from '../components/BobAnalysis';
-import ReportViewer from '../components/ReportViewer';
-import MemoryViewer from '../components/MemoryViewer';
-import PRDraftViewer from '../components/PRDraftViewer';
-import ScanInput from '../components/ScanInput';
-import { SEVERITY_COLORS } from '../utils/severity';
+import type { CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Bell, Wifi, WifiOff } from "lucide-react";
+import { apiClient } from "../api/client";
+import type { BobOutput, Finding, Incident } from "../api/types";
+import type { BobAnalysisReport } from "../api/client";
+
+import {
+  normalizeBobOutput,
+  normalizeFinding,
+  normalizeIncident,
+} from "../api/normalize";
+import { useRealtimeMonitoring } from "../hooks/useRealtimeMonitoring";
+
+import OverviewCards from "../components/OverviewCards";
+import FindingsTable from "../components/FindingsTable";
+import IncidentDetail from "../components/IncidentDetail";
+import AttackPathGraph from "../components/AttackPathGraph";
+import BobAnalysis from "../components/BobAnalysis";
+import ReportViewer from "../components/ReportViewer";
+import MemoryViewer from "../components/MemoryViewer";
+import PRDraftViewer from "../components/PRDraftViewer";
+
+type ActiveTab = "overview" | "findings" | "incident" | "analysis";
+
+const pageStyle: CSSProperties = {
+  minHeight: "100vh",
+  backgroundColor: "#f5f5f5",
+  color: "#151515",
+  padding: "0",
+};
+
+const headerStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  padding: "0.75rem 2rem",
+  backgroundColor: "#3c3f42",
+  color: "#ffffff",
+  marginBottom: "0",
+};
+
+const statusBarStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  backgroundColor: "#ffffff",
+  border: "1px solid #d2d2d2",
+  borderRadius: "0",
+  padding: "1rem 2rem",
+  marginBottom: "0",
+};
+
+const tabButtonBase: CSSProperties = {
+  padding: "0.75rem 1.5rem",
+  backgroundColor: "transparent",
+  border: "none",
+  borderBottom: "2px solid transparent",
+  color: "#6a6e73",
+  fontSize: "0.875rem",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const sectionStyle: CSSProperties = {
+  marginTop: "1.5rem",
+  padding: "0 2rem",
+};
+
+function mergeById<T extends Record<string, unknown>>(
+  current: T[],
+  incoming: T[],
+  idKey: keyof T
+): T[] {
+  const map = new Map<string, T>();
+
+  for (const item of current) {
+    const id = String(item[idKey]);
+    map.set(id, item);
+  }
+
+  for (const item of incoming) {
+    const id = String(item[idKey]);
+    map.set(id, item);
+  }
+
+  return Array.from(map.values());
+}
 
 export default function DashboardPage() {
-  const [mode, setMode] = useState<'demo' | 'live'>('demo');
-  const [selectedScenarioId, setSelectedScenarioId] = useState('inc-001');
   const [findings, setFindings] = useState<Finding[]>([]);
+  const [scanPath, setScanPath] = useState(".");
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [bobOutput, setBobOutput] = useState<BobOutput | null>(null);
+  const analyzedIncidentIdsRef = useRef<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'findings' | 'incident' | 'analysis'>('overview');
+  const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
+  const [bobReports, setBobReports] = useState<BobAnalysisReport[]>([]);
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState("");
 
-  useEffect(() => {
-    if (mode === 'demo') {
-      loadData(selectedScenarioId);
-    }
-  }, [selectedScenarioId, mode]);
+  const notify = useCallback((message: string, duration = 4000) => {
+    setNotificationMessage(message);
+    setShowNotification(true);
 
-  const loadData = async (scenarioId: string) => {
-    try {
-      setLoading(true);
+    window.setTimeout(() => {
+      setShowNotification(false);
+    }, duration);
+  }, []);
+
+  const handleNewFinding = useCallback(
+    (finding: Finding) => {
+      const normalized = normalizeFinding(finding);
+
+      setFindings((prev) =>
+        mergeById(prev, [normalized], "finding_id")
+      );
+
+      notify(`New ${normalized.severity_hint} severity finding detected!`, 5000);
+    },
+    [notify]
+  );
+
+  const handleNewIncident = useCallback(
+    (incident: Incident) => {
+      const normalized = normalizeIncident(incident);
+
+      setIncidents((prev) =>
+        mergeById(prev, [normalized], "incident_id")
+      );
+
+      setSelectedIncident(normalized);
+
+      notify(`New ${normalized.severity} incident: ${normalized.title}`, 5000);
+    },
+    [notify]
+  );
+
+  const handleBobAnalysis = useCallback(
+    (_incidentId: string, analysis: BobOutput) => {
+      setBobOutput(normalizeBobOutput(analysis));
+      notify("Bob AI analysis completed!", 5000);
+    },
+    [notify]
+  );
+
+  const {
+    isConnected,
+    newFindings,
+    newIncidents,
+    clearNewFindings,
+    clearNewIncidents,
+    reconnect,
+  } = useRealtimeMonitoring(
+    handleNewFinding,
+    handleNewIncident,
+    handleBobAnalysis,
+    () => {
+      analyzedIncidentIdsRef.current.clear();
+
+      setFindings([]);
+      setIncidents([]);
+      setSelectedIncident(null);
       setBobOutput(null);
-      const [findingsData, incidentsData] = await Promise.all([
-        apiClient.getFindings(scenarioId, true),
-        apiClient.getIncidents(scenarioId, true)
-      ]);
-
-      setFindings(findingsData);
-      setIncidents(incidentsData);
-
-      if (incidentsData.length > 0) {
-        setSelectedIncident(incidentsData[0]);
-        const bobData = await apiClient.getBobAnalysis(incidentsData[0].incident_id, scenarioId, true);
-        setBobOutput(bobData);
-      }
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
+      setActiveTab("overview");
     }
-  };
+  );
 
-  const loadLiveData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
+
       const [findingsData, incidentsData] = await Promise.all([
-        apiClient.getFindings('', false),
-        apiClient.getIncidents('', false)
+        apiClient.getFindings(),
+        apiClient.getIncidents(),
       ]);
 
-      setFindings(findingsData);
-      setIncidents(incidentsData);
+      const normalizedFindings = findingsData.map(normalizeFinding);
+      const normalizedIncidents = incidentsData.map(normalizeIncident);
 
-      if (incidentsData.length > 0) {
-        setSelectedIncident(incidentsData[0]);
-        const bobData = await apiClient.getBobAnalysis(incidentsData[0].incident_id, '', false);
-        setBobOutput(bobData ?? null);
+      setFindings(normalizedFindings);
+      setIncidents(normalizedIncidents);
+
+      if (normalizedIncidents.length > 0) {
+        const firstIncident = normalizedIncidents[0];
+        setSelectedIncident(firstIncident);
+
+        try {
+          const bobData = await apiClient.getBobAnalysis(firstIncident.incident_id);
+          setBobOutput(normalizeBobOutput(bobData));
+        } catch {
+          setBobOutput(null);
+        }
       } else {
         setSelectedIncident(null);
         setBobOutput(null);
       }
     } catch (error) {
-      console.error('Error loading live data:', error);
+      console.error("Error loading data:", error);
+      notify("Failed to load dashboard data. Check backend connection.", 5000);
     } finally {
       setLoading(false);
     }
-  };
+  }, [notify]);
 
-  const handleScenarioSwitch = (scenarioId: string) => {
-    setSelectedScenarioId(scenarioId);
-    setActiveTab('overview');
-  };
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
-  const handleModeSwitch = (newMode: 'demo' | 'live') => {
-    setMode(newMode);
-    // Reset all data when switching modes
+  const handleTriggerScan = async () => {
+    try {
+      const pathToScan = scanPath.trim() || ".";
+
+      notify(`Scanning ${pathToScan}...`, 3000);
+
+      const result = await apiClient.triggerScan([pathToScan], false, true);
+      if (result.new_findings.length > 0) {
+        setFindings((prev) =>
+          mergeById(prev, result.new_findings, "finding_id")
+        );
+      }
+
+      if (result.new_incidents.length > 0) {
+        setIncidents((prev) =>
+          mergeById(prev, result.new_incidents, "incident_id")
+        );
+
+        setSelectedIncident(result.new_incidents[0]);
+        setActiveTab("incident");
+      }
+
+      if (result.bob_analysis) {
+        setBobOutput(normalizeBobOutput(result.bob_analysis));
+      }
+      if (result.bob_analyses.length > 0) {
+        setBobReports(result.bob_analyses);
+      }
+      notify("Repository scan completed.", 3000);
+
+      window.setTimeout(() => {
+        loadData();
+      }, 800);
+    } catch (error) {
+      console.error("Failed to trigger scan:", error);
+      notify("Failed to start scan. Check backend connection.", 5000);
+    }
+  };
+  const handleClearAll = async () => {
+    try {
+      await apiClient.clearAllData();
+    } catch (error) {
+      console.warn("Clear endpoint failed. Frontend state will still be cleared.", error);
+    }
+
+    analyzedIncidentIdsRef.current.clear();
+
     setFindings([]);
     setIncidents([]);
     setSelectedIncident(null);
     setBobOutput(null);
-    setActiveTab('overview');
-    
-    if (newMode === 'demo') {
-      loadData(selectedScenarioId);
-    } else {
-      setLoading(false);
-    }
-  };
+    setBobReports([]);
+    setActiveTab("overview");
 
-  const handleScanComplete = (result: { findings_count: number; incidents_count: number }) => {
-    // After scan completes, load the fresh data from backend
-    loadLiveData();
+    clearNewFindings();
+    clearNewIncidents();
+
+    notify("Dashboard data cleared.", 3000);
   };
 
   if (loading) {
     return (
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '80vh',
-        color: '#8b949e'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            border: '4px solid #30363d',
-            borderTopColor: '#58a6ff',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 1rem'
-          }} />
-          <p>Loading scenario...</p>
+      <main style={pageStyle}>
+        <div style={{ paddingTop: "3rem", color: "#8b949e" }}>
+          Loading Jeff Dashboard...
         </div>
-      </div>
+      </main>
     );
   }
 
+  const tabs: { id: ActiveTab; label: string }[] = [
+    { id: "overview", label: "Overview" },
+    { id: "findings", label: "Findings" },
+    { id: "incident", label: "Incident Analysis" },
+    { id: "analysis", label: "Bob AI Analysis" },
+  ];
+
   return (
-    <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto' }}>
-
-      {/* Mode Toggle */}
-      <div style={{
-        marginBottom: '2rem',
-        padding: '1.25rem',
-        backgroundColor: '#161b22',
-        border: '1px solid #30363d',
-        borderRadius: '8px'
-      }}>
-        <div style={{
-          fontSize: '0.75rem',
-          fontWeight: 600,
-          color: '#8b949e',
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-          marginBottom: '0.875rem'
-        }}>
-          Mode Selection
-        </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button
-            onClick={() => handleModeSwitch('demo')}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              padding: '0.75rem 1.25rem',
-              backgroundColor: mode === 'demo' ? '#1c2128' : 'transparent',
-              border: `1px solid ${mode === 'demo' ? '#58a6ff' : '#30363d'}`,
-              borderRadius: '6px',
-              color: mode === 'demo' ? '#e6edf3' : '#8b949e',
-              cursor: 'pointer',
-              transition: 'all 0.15s',
-              minWidth: '200px',
-              textAlign: 'left'
-            }}
-            onMouseOver={(e) => {
-              if (mode !== 'demo') {
-                e.currentTarget.style.borderColor = '#58a6ff';
-                e.currentTarget.style.color = '#e6edf3';
-              }
-            }}
-            onMouseOut={(e) => {
-              if (mode !== 'demo') {
-                e.currentTarget.style.borderColor = '#30363d';
-                e.currentTarget.style.color = '#8b949e';
-              }
-            }}
-          >
-            <span style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.25rem' }}>
-              Demo Mode
-            </span>
-            <span style={{ fontSize: '0.75rem', color: '#6e7681' }}>
-              Predefined scenarios
-            </span>
-          </button>
-          <button
-            onClick={() => handleModeSwitch('live')}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              padding: '0.75rem 1.25rem',
-              backgroundColor: mode === 'live' ? '#1c2128' : 'transparent',
-              border: `1px solid ${mode === 'live' ? '#58a6ff' : '#30363d'}`,
-              borderRadius: '6px',
-              color: mode === 'live' ? '#e6edf3' : '#8b949e',
-              cursor: 'pointer',
-              transition: 'all 0.15s',
-              minWidth: '200px',
-              textAlign: 'left'
-            }}
-            onMouseOver={(e) => {
-              if (mode !== 'live') {
-                e.currentTarget.style.borderColor = '#58a6ff';
-                e.currentTarget.style.color = '#e6edf3';
-              }
-            }}
-            onMouseOut={(e) => {
-              if (mode !== 'live') {
-                e.currentTarget.style.borderColor = '#30363d';
-                e.currentTarget.style.color = '#8b949e';
-              }
-            }}
-          >
-            <span style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.25rem' }}>
-              Live Scan
-            </span>
-            <span style={{ fontSize: '0.75rem', color: '#6e7681' }}>
-              Scan real repositories
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {/* Scan Input - Only show in Live mode */}
-      {mode === 'live' && (
-        <ScanInput onScanComplete={handleScanComplete} />
-      )}
-
-      {/* Scenario Selector - Only show in Demo mode */}
-      {mode === 'demo' && (
-        <div style={{
-          marginBottom: '2rem',
-          padding: '1.25rem',
-          backgroundColor: '#161b22',
-          border: '1px solid #30363d',
-          borderRadius: '8px'
-        }}>
+    <main style={pageStyle}>
+      <header style={headerStyle}>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
           <div style={{
-            fontSize: '0.75rem',
-            fontWeight: 600,
-            color: '#8b949e',
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-            marginBottom: '0.875rem'
+            width: "32px",
+            height: "32px",
+            backgroundColor: "#ee0000",
+            borderRadius: "4px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "1.2rem"
           }}>
-            Demo Scenario
+            🛡️
           </div>
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          {SCENARIOS.map((s) => {
-            const isActive = selectedScenarioId === s.id;
-            const color = SEVERITY_COLORS[s.severity] ?? '#8b949e';
-            return (
+          <h1 style={{ margin: 0, color: "#ffffff", fontSize: "1.125rem", fontWeight: 400 }}>
+            Detections Dashboard
+          </h1>
+        </div>
+
+        <span style={{ color: "#d2d2d2", fontSize: "0.875rem" }}>
+          Powered by IBM Bob
+        </span>
+      </header>
+
+      <section style={statusBarStyle}>
+        <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
+          {isConnected ? (
+            <span
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                color: "#3e8635",
+                fontSize: "0.875rem",
+              }}
+            >
+              <Wifi size={16} /> Real-time Monitoring Active
+            </span>
+          ) : (
+            <span
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                color: "#c9190b",
+                fontSize: "0.875rem",
+              }}
+            >
+              <WifiOff size={16} /> Disconnected
               <button
-                key={s.id}
-                onClick={() => handleScenarioSwitch(s.id)}
+                onClick={reconnect}
                 style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'flex-start',
-                  padding: '0.75rem 1.25rem',
-                  backgroundColor: isActive ? '#1c2128' : 'transparent',
-                  border: `1px solid ${isActive ? color : '#30363d'}`,
-                  borderRadius: '6px',
-                  color: isActive ? '#e6edf3' : '#8b949e',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                  minWidth: '200px',
-                  textAlign: 'left'
-                }}
-                onMouseOver={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.borderColor = '#58a6ff';
-                    e.currentTarget.style.color = '#e6edf3';
-                  }
-                }}
-                onMouseOut={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.borderColor = '#30363d';
-                    e.currentTarget.style.color = '#8b949e';
-                  }
+                  marginLeft: "0.5rem",
+                  padding: "0.25rem 0.75rem",
+                  backgroundColor: "#0066cc",
+                  border: "none",
+                  borderRadius: "3px",
+                  color: "#fff",
+                  fontSize: "0.75rem",
+                  cursor: "pointer",
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                  <span style={{
-                    display: 'inline-block',
-                    width: '8px',
-                    height: '8px',
-                    borderRadius: '50%',
-                    backgroundColor: isActive ? color : '#484f58',
-                    flexShrink: 0
-                  }} />
-                  <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>{s.label}</span>
-                  <span style={{
-                    fontSize: '0.65rem',
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    color: color,
-                    opacity: isActive ? 1 : 0.6,
-                    border: `1px solid ${color}`,
-                    borderRadius: '3px',
-                    padding: '0 4px'
-                  }}>
-                    {s.severity}
-                  </span>
-                </div>
-                <span style={{ fontSize: '0.75rem', color: '#6e7681' }}>{s.subtitle}</span>
+                Reconnect
               </button>
-            );
-          })}
+            </span>
+          )}
+
+          {(newFindings.length > 0 || newIncidents.length > 0) && (
+            <span
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                color: "#f0ab00",
+                fontSize: "0.875rem",
+              }}
+            >
+              <Bell size={16} />
+              {newFindings.length > 0 &&
+                `${newFindings.length} new finding${newFindings.length > 1 ? "s" : ""}`}
+              {newFindings.length > 0 && newIncidents.length > 0 && ", "}
+              {newIncidents.length > 0 &&
+                `${newIncidents.length} new incident${newIncidents.length > 1 ? "s" : ""}`}
+            </span>
+          )}
         </div>
+
+       <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <input
+            value={scanPath}
+            onChange={(event) => setScanPath(event.target.value)}
+            placeholder="Path to scan, e.g. . or ./mock-repos"
+            style={{
+              padding: "0.5rem",
+              border: "1px solid #d2d2d2",
+              borderRadius: "3px",
+              minWidth: "260px",
+              fontSize: "0.875rem",
+            }}
+          />
+
+          <button
+            onClick={handleTriggerScan}
+            style={{
+              padding: "0.5rem 1rem",
+              backgroundColor: "#0066cc",
+              border: "none",
+              borderRadius: "3px",
+              color: "#fff",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            🔍 Run Security Scan
+          </button>
+
+          <button
+            onClick={handleClearAll}
+            style={{
+              padding: "0.5rem 1rem",
+              backgroundColor: "#ffffff",
+              border: "1px solid #d2d2d2",
+              borderRadius: "3px",
+              color: "#151515",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Clear Dashboard
+          </button>
+
+          <span style={{ color: "#6a6e73", fontSize: "0.875rem" }}>
+            Last updated: {new Date().toLocaleTimeString()}
+          </span>
+        </div>
+      </section>
+
+      {showNotification && (
+        <div
+          style={{
+            position: "fixed",
+            top: "1.5rem",
+            right: "1.5rem",
+            backgroundColor: "#ffffff",
+            border: "1px solid #0066cc",
+            borderRadius: "3px",
+            padding: "1rem 1.5rem",
+            color: "#151515",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+            zIndex: 1000,
+          }}
+        >
+          🔔 {notificationMessage}
         </div>
       )}
 
-      {/* Navigation Tabs */}
-      <div style={{
-        display: 'flex',
-        gap: '0.5rem',
-        marginBottom: '2rem',
-        borderBottom: '1px solid #30363d',
-        paddingBottom: '0'
-      }}>
-        {[
-          { id: 'overview', label: 'Overview' },
-          { id: 'findings', label: 'Findings' },
-          { id: 'incident', label: 'Incident Analysis' },
-          { id: 'analysis', label: 'Bob AI Analysis' }
-        ].map((tab) => (
+      <nav
+        style={{
+          display: "flex",
+          borderBottom: "1px solid #d2d2d2",
+          marginBottom: "0",
+          backgroundColor: "#ffffff",
+          padding: "0 2rem",
+        }}
+      >
+        {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as typeof activeTab)}
+            onClick={() => setActiveTab(tab.id)}
             style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: 'transparent',
-              border: 'none',
-              borderBottom: activeTab === tab.id ? '2px solid #58a6ff' : '2px solid transparent',
-              color: activeTab === tab.id ? '#58a6ff' : '#8b949e',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              marginBottom: '-1px'
-            }}
-            onMouseOver={(e) => {
-              if (activeTab !== tab.id) e.currentTarget.style.color = '#e6edf3';
-            }}
-            onMouseOut={(e) => {
-              if (activeTab !== tab.id) e.currentTarget.style.color = '#8b949e';
+              ...tabButtonBase,
+              borderBottomColor: activeTab === tab.id ? "#0066cc" : "transparent",
+              color: activeTab === tab.id ? "#0066cc" : "#6a6e73",
             }}
           >
             {tab.label}
           </button>
         ))}
-      </div>
+      </nav>
 
-      {/* Overview Tab */}
-      {activeTab === 'overview' && (
-        <div>
+      {activeTab === "overview" && (
+        <section>
           <OverviewCards
-            incidents={incidents}
             findings={findings}
-            bobAnalysisGenerated={bobOutput !== null}
+            incidents={incidents}
+            bobOutput={bobOutput}
           />
 
-          <div style={{ marginBottom: '2rem' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#e6edf3', marginBottom: '1rem' }}>
-              Recent Findings
-            </h2>
+          <div style={sectionStyle}>
+            <h2>Recent Findings</h2>
             <FindingsTable findings={findings.slice(0, 5)} />
           </div>
 
           {selectedIncident && (
-            <div style={{ marginBottom: '2rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#e6edf3', marginBottom: '1rem' }}>
-                Critical Incident
-              </h2>
+            <div style={sectionStyle}>
+              <h2>Critical Incident</h2>
               <IncidentDetail incident={selectedIncident} />
             </div>
           )}
-        </div>
+        </section>
       )}
 
-      {/* Findings Tab */}
-      {activeTab === 'findings' && (
-        <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 600, color: '#e6edf3', marginBottom: '1.5rem' }}>
-            All Security Findings
-          </h2>
+      {activeTab === "findings" && (
+        <section>
+          <h2>All Security Findings</h2>
           <FindingsTable findings={findings} />
-        </div>
+        </section>
       )}
+      {activeTab === "incident" && (
+        <section>
+          <h2 style={{ padding: "0 2rem" }}>Incident Analysis</h2>
 
-      {/* Incident Analysis Tab */}
-      {activeTab === 'incident' && selectedIncident && (
-        <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 600, color: '#e6edf3', marginBottom: '1.5rem' }}>
-            Incident Analysis
-          </h2>
+          {incidents.length > 0 ? (
+            <div style={{ display: "grid", gap: "1.5rem", padding: "0 2rem" }}>
+              {incidents.map((incident, index) => (
+                <div
+                  key={incident.incident_id}
+                  style={{
+                    backgroundColor: "#ffffff",
+                    border: "1px solid #d2d2d2",
+                    borderRadius: "6px",
+                    padding: "1rem",
+                  }}
+                >
+                  <h3>
+                    Incident {index + 1}: {incident.title}
+                  </h3>
 
-          <div style={{ marginBottom: '2rem' }}>
-            <IncidentDetail incident={selectedIncident} />
-          </div>
+                  <IncidentDetail incident={incident} />
 
-          <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#e6edf3', marginBottom: '1rem' }}>
-              Attack Path
-            </h3>
-            <AttackPathGraph attackPath={selectedIncident.attack_path} />
-          </div>
+                  <div style={{ marginTop: "1.5rem" }}>
+                    <h4>Attack Path</h4>
+                    {incident.attack_path?.nodes?.length > 0 ? (
+                      <AttackPathGraph attackPath={incident.attack_path} />
+                    ) : (
+                      <p style={{ color: "#8b949e" }}>No attack path available.</p>
+                    )}
+                  </div>
 
-          <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#e6edf3', marginBottom: '1rem' }}>
-              Related Findings
-            </h3>
-            <FindingsTable findings={selectedIncident.findings} />
-          </div>
+                  <div style={{ marginTop: "1.5rem" }}>
+                    <h4>Related Findings</h4>
+                    <FindingsTable findings={incident.findings ?? []} />
+                  </div>
 
-          {(selectedIncident.related_memory ?? []).length > 0 && (
-            <div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#e6edf3', marginBottom: '1rem' }}>
-                AI Memory Patterns
-              </h3>
-              <MemoryViewer memories={selectedIncident.related_memory ?? []} />
+                  {(incident.related_memory?.length ?? 0) > 0 && (
+                    <div style={{ marginTop: "1.5rem" }}>
+                      <h4>AI Memory Patterns</h4>
+                      <MemoryViewer memories={incident.related_memory ?? []} />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ color: "#8b949e", padding: "2rem" }}>
+              <h3>No incidents detected yet</h3>
+              <p>Run a security scan to detect and correlate security incidents.</p>
             </div>
           )}
-        </div>
+        </section>
       )}
 
-      {/* Bob AI Analysis Tab */}
-      {activeTab === 'analysis' && (
-        <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 600, color: '#e6edf3', marginBottom: '1.5rem' }}>
-            IBM Bob AI Analysis & Remediation
-          </h2>
+        {activeTab === "analysis" && (
+    <section>
+      <h2 style={{ padding: "0 2rem" }}>IBM Bob AI Analysis & Remediation</h2>
 
-          <div style={{ marginBottom: '2rem' }}>
-            <BobAnalysis bobOutput={bobOutput} />
-          </div>
+      {bobReports.length > 0 ? (
+        <div style={{ display: "grid", gap: "1.5rem", padding: "0 2rem" }}>
+          {bobReports.map((report, index) => (
+            <div
+              key={`${report.incident_id}-${index}`}
+              style={{
+                backgroundColor: "#ffffff",
+                border: "1px solid #d2d2d2",
+                borderRadius: "6px",
+                padding: "1rem",
+              }}
+            >
+              <h3>
+                Report {index + 1}: {report.incident_title}
+              </h3>
+
+              <p style={{ color: "#6a6e73" }}>
+                Incident ID: {report.incident_id} · Findings: {report.finding_count}
+              </p>
+
+              <BobAnalysis bobOutput={report.analysis} />
+
+              <div style={sectionStyle}>
+                <h4>Incident Report</h4>
+                <ReportViewer report={report.analysis.incident_report} />
+              </div>
+
+              <div style={sectionStyle}>
+                <h4>AI Memory Created</h4>
+                <MemoryViewer memories={[report.analysis.ai_memory]} />
+              </div>
+
+              <div style={sectionStyle}>
+                <h4>Pull Request Draft</h4>
+                <PRDraftViewer prDraft={report.analysis.pr_draft} />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <>
+          <BobAnalysis bobOutput={bobOutput} />
 
           {bobOutput && (
             <>
-              <div style={{ marginBottom: '2rem' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#e6edf3', marginBottom: '1rem' }}>
-                  Incident Report
-                </h3>
+              <div style={sectionStyle}>
+                <h3>Incident Report</h3>
                 <ReportViewer report={bobOutput.incident_report} />
               </div>
 
-              <div style={{ marginBottom: '2rem' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#e6edf3', marginBottom: '1rem' }}>
-                  AI Memory Created
-                </h3>
+              <div style={sectionStyle}>
+                <h3>AI Memory Created</h3>
                 <MemoryViewer memories={[bobOutput.ai_memory]} />
               </div>
 
-              <div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#e6edf3', marginBottom: '1rem' }}>
-                  Pull Request Draft
-                </h3>
+              <div style={sectionStyle}>
+                <h3>Pull Request Draft</h3>
                 <PRDraftViewer prDraft={bobOutput.pr_draft} />
               </div>
             </>
           )}
-        </div>
+        </>
       )}
-
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
-    </div>
+    </section>
+  )}
+    </main>
   );
 }
-
-// Made with Bob

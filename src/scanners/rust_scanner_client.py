@@ -60,11 +60,8 @@ class RustScannerClient:
         if not self.rust_scanner_path.exists():
             raise FileNotFoundError(f"Rust scanner not found at {self.rust_scanner_path}")
         
-        import shutil, os
-        cargo_path = shutil.which("cargo") or os.path.expanduser("~/.cargo/bin/cargo")
-        
         # Build command
-        cmd = [cargo_path, "run", "--", "scan", "--path"] + paths
+        cmd = ["cargo", "run", "--", "scan", "--path"] + paths
         
         # Run scanner
         result = subprocess.run(
@@ -224,10 +221,8 @@ class RustScannerClient:
     def check_rust_scanner_available(self) -> bool:
         """Check if Rust scanner is available"""
         try:
-            import shutil, os
-            cargo_path = shutil.which("cargo") or os.path.expanduser("~/.cargo/bin/cargo")
             result = subprocess.run(
-                [cargo_path, "--version"],
+                ["cargo", "--version"],
                 cwd=self.rust_scanner_path,
                 capture_output=True,
                 timeout=5

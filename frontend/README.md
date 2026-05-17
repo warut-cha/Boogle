@@ -1,6 +1,6 @@
-# Bob Sentinel Frontend Dashboard
+# Jeff Frontend Dashboard
 
-React + TypeScript + Vite dashboard for Bob Sentinel - Autonomous DevSecOps Assistant.
+React + TypeScript + Vite dashboard for Jeff - Autonomous DevSecOps Assistant.
 
 ## Features
 
@@ -178,7 +178,7 @@ Check that:
 
 ## Contributing
 
-This is part of the Bob Sentinel hackathon project. Follow the team's Git workflow:
+This is part of the Jeff hackathon project. Follow the team's Git workflow:
 
 1. Work in your feature branch
 2. Open PR into `develop`, not `main`
@@ -187,4 +187,4 @@ This is part of the Bob Sentinel hackathon project. Follow the team's Git workfl
 
 ## License
 
-Hackathon Project - IBM Bob Sentinel Team
+Hackathon Project - IBM Jeff Team

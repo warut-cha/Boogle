@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Finding",
+  "description": "Security finding from scanner",
+  "type": "object",
+  "required": [
+    "finding_id",
+    "repo_name",
+    "finding_type",
+    "category",
+    "severity_hint",
+    "source",
+    "evidence",
+    "timestamp"
+  ],
+  "properties": {
+    "finding_id": {
+      "type": "string",
+      "description": "Unique identifier for the finding"
+    },
+    "repo_name": {
+      "type": "string",
+      "description": "Repository name where finding was detected"
+    },
+    "finding_type": {
+      "type": "string",
+      "enum": [
+        "hardcoded_secret",
+        "private_key",
+        "database_url",
+        "deprecated_api",
+        "runtime_anomaly",
+        "database_anomaly",
+        "infrastructure_risk",
+        "sensitive_log_exposure"
+      ]
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "secret_exposure",
+        "legacy_api",
+        "runtime_behavior",
+        "database_activity",
+        "infrastructure",
+        "logging",
+        "unknown"
+      ]
+    },
+    "severity_hint": {
+      "type": "string",
+      "enum": ["info", "low", "medium", "high", "critical"]
+    },
+    "source": {
+      "type": "string",
+      "enum": ["rust_scanner", "python_analyzer", "mock_data", "bob_analysis"]
+    },
+    "file": {
+      "type": ["string", "null"],
+      "description": "File path where finding was detected"
+    },
+    "line": {
+      "type": ["integer", "null"],
+      "description": "Line number in file"
+    },
+    "endpoint": {
+      "type": ["string", "null"],
+      "description": "API endpoint related to finding"
+    },
+    "database_table": {
+      "type": ["string", "null"],
+      "description": "Database table related to finding"
+    },
+    "evidence": {
+      "type": "string",
+      "description": "Evidence or description of the finding"
+    },
+    "masked_value": {
+      "type": ["string", "null"],
+      "description": "Masked sensitive value (e.g., sk_test_****92fa)"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when finding was detected"
+    }
+  }
+}
