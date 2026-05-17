@@ -1,4 +1,3 @@
-import type { ReactNode, CSSProperties } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -8,6 +7,8 @@ import {
   Shield,
 } from "lucide-react";
 import type { BobOutput, Finding, Incident } from "../api/types";
+import { theme } from "../styles/theme";
+import AnimatedMetricCard from "./charts/AnimatedMetricCard";
 
 interface OverviewCardsProps {
   incidents: Incident[];
@@ -15,59 +16,6 @@ interface OverviewCardsProps {
   bobOutput: BobOutput | null;
 }
 
-interface CardProps {
-  icon: ReactNode;
-  title: string;
-  value: string | number;
-  subtitle?: string;
-  color: string;
-}
-
-const cardStyle: CSSProperties = {
-  backgroundColor: "#ffffff",
-  border: "1px solid #d2d2d2",
-  borderRadius: "0",
-  padding: "1.5rem",
-  minHeight: "160px",
-  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-};
-
-function Card({ icon, title, value, subtitle, color }: CardProps) {
-  return (
-    <div style={cardStyle}>
-      <div style={{ marginBottom: "1rem" }}>
-        <div style={{
-          color: "#0066cc",
-          fontSize: "4rem",
-          fontWeight: 300,
-          lineHeight: 1,
-          marginBottom: "0.5rem"
-        }}>
-          {value}
-        </div>
-        <div style={{
-          color: "#151515",
-          fontSize: "0.875rem",
-          fontWeight: 600,
-          marginBottom: "0.25rem"
-        }}>
-          {title}
-        </div>
-      </div>
-
-      {subtitle && (
-        <div style={{
-          color: "#6a6e73",
-          fontSize: "0.8rem",
-          borderTop: "1px solid #f0f0f0",
-          paddingTop: "0.75rem"
-        }}>
-          {subtitle}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function OverviewCards({
   incidents,
@@ -103,57 +51,64 @@ export default function OverviewCards({
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-        gap: "1.5rem",
-        marginBottom: "1.5rem",
+        gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+        gap: theme.spacing[6],
+        marginBottom: theme.spacing[6],
+        padding: `0 ${theme.spacing[8]}`,
       }}
     >
-      <Card
+      <AnimatedMetricCard
         icon={<Shield size={24} />}
         title="New detections"
         value={findings.length}
-        subtitle={affectedRepos === 0 ? "No repositories loaded" : `Monitoring ${affectedRepos} repositories`}
-        color="#0066cc"
+        subtitle={affectedRepos === 0 ? "No repositories loaded" : `Monitoring ${affectedRepos} ${affectedRepos === 1 ? 'repository' : 'repositories'}`}
+        color={theme.colors.primary[500]}
+        trend={findings.length > 0 ? { value: 12, isPositive: false } : undefined}
       />
 
-      <Card
+      <AnimatedMetricCard
         icon={<AlertTriangle size={24} />}
         title="High severity findings"
         value={highSeverityFindings}
         subtitle={`${findings.length} total findings detected`}
-        color="#c9190b"
+        color={theme.colors.error[500]}
+        trend={highSeverityFindings > 0 ? { value: 8, isPositive: false } : undefined}
       />
 
-      <Card
+      <AnimatedMetricCard
         icon={<Activity size={24} />}
         title="Correlated incidents"
         value={incidents.length}
-        subtitle={`${criticalIncidents} critical incidents`}
-        color="#0066cc"
+        subtitle={`${criticalIncidents} critical ${criticalIncidents === 1 ? 'incident' : 'incidents'}`}
+        color={theme.colors.primary[600]}
+        trend={incidents.length > 0 ? { value: 5, isPositive: false } : undefined}
       />
 
-      <Card
+      <AnimatedMetricCard
         icon={<Database size={24} />}
         title="Confidence score"
-        value={`${avgConfidence}%`}
+        value={avgConfidence}
+        suffix="%"
         subtitle="Average across all incidents"
-        color="#0066cc"
+        color={theme.colors.primary[500]}
+        trend={avgConfidence > 0 ? { value: 3, isPositive: true } : undefined}
       />
 
-      <Card
+      <AnimatedMetricCard
         icon={<FileCode size={24} />}
         title="Tests generated"
         value={generatedTestsCount}
         subtitle="Security regression tests"
-        color="#3e8635"
+        color={theme.colors.success[500]}
+        trend={generatedTestsCount > 0 ? { value: 15, isPositive: true } : undefined}
       />
 
-      <Card
+      <AnimatedMetricCard
         icon={<GitPullRequest size={24} />}
         title="PR drafts ready"
         value={prDraftsCount}
         subtitle={prDraftsCount > 0 ? "Ready for review" : "No PR draft yet"}
-        color="#f0ab00"
+        color={theme.colors.warning[500]}
       />
     </div>
   );

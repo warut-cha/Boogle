@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useState } from "react";
-import { Bell, Wifi, WifiOff } from "lucide-react";
+import { Bell, Wifi, WifiOff, RefreshCw, Trash2, Zap } from "lucide-react";
 import { apiClient } from "../api/client";
 import type { BobOutput, Finding, Incident } from "../api/types";
 import {
@@ -9,6 +9,7 @@ import {
   normalizeIncident,
 } from "../api/normalize";
 import { useRealtimeMonitoring } from "../hooks/useRealtimeMonitoring";
+import { theme, gradients } from "../styles/theme";
 
 import OverviewCards from "../components/OverviewCards";
 import FindingsTable from "../components/FindingsTable";
@@ -18,51 +19,61 @@ import BobAnalysis from "../components/BobAnalysis";
 import ReportViewer from "../components/ReportViewer";
 import MemoryViewer from "../components/MemoryViewer";
 import PRDraftViewer from "../components/PRDraftViewer";
+import SeverityChart from "../components/charts/SeverityChart";
+import TimelineChart from "../components/charts/TimelineChart";
 
 type ActiveTab = "overview" | "findings" | "incident" | "analysis";
 
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
-  backgroundColor: "#f5f5f5",
-  color: "#151515",
+  backgroundColor: theme.colors.background.secondary,
+  color: theme.colors.text.primary,
   padding: "0",
+  fontFamily: theme.typography.fontFamily.sans,
 };
 
 const headerStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  padding: "0.75rem 2rem",
-  backgroundColor: "#3c3f42",
-  color: "#ffffff",
+  padding: `${theme.spacing[4]} ${theme.spacing[8]}`,
+  background: gradients.primary,
+  color: theme.colors.text.inverse,
   marginBottom: "0",
+  boxShadow: theme.shadows.md,
+  position: "sticky",
+  top: 0,
+  zIndex: theme.zIndex.sticky,
 };
 
 const statusBarStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  backgroundColor: "#ffffff",
-  border: "1px solid #d2d2d2",
+  backgroundColor: theme.colors.background.primary,
+  border: `1px solid ${theme.colors.border.subtle}`,
   borderRadius: "0",
-  padding: "1rem 2rem",
+  padding: `${theme.spacing[4]} ${theme.spacing[8]}`,
   marginBottom: "0",
+  boxShadow: theme.shadows.sm,
 };
 
 const tabButtonBase: CSSProperties = {
-  padding: "0.75rem 1.5rem",
+  padding: `${theme.spacing[3]} ${theme.spacing[6]}`,
   backgroundColor: "transparent",
   border: "none",
-  borderBottom: "2px solid transparent",
-  color: "#6a6e73",
-  fontSize: "0.875rem",
-  fontWeight: 600,
+  borderBottom: "3px solid transparent",
+  color: theme.colors.text.secondary,
+  fontSize: theme.typography.fontSize.sm,
+  fontWeight: theme.typography.fontWeight.semibold,
   cursor: "pointer",
+  transition: `all ${theme.transitions.base}`,
+  letterSpacing: theme.typography.letterSpacing.wide,
 };
 
 const sectionStyle: CSSProperties = {
-  marginTop: "1.5rem",
-  padding: "0 2rem",
+  marginTop: theme.spacing[6],
+  padding: `0 ${theme.spacing[8]}`,
 };
 
 function mergeById<T extends Record<string, unknown>>(
@@ -260,8 +271,28 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <main style={pageStyle}>
-        <div style={{ paddingTop: "3rem", color: "#8b949e" }}>
-          Loading Jeff Dashboard...
+        <div style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "100vh",
+          gap: theme.spacing[4]
+        }}>
+          <div className="animate-spin" style={{
+            width: "48px",
+            height: "48px",
+            border: `4px solid ${theme.colors.border.subtle}`,
+            borderTopColor: theme.colors.primary[500],
+            borderRadius: "50%"
+          }} />
+          <div style={{
+            color: theme.colors.text.secondary,
+            fontSize: theme.typography.fontSize.lg,
+            fontWeight: theme.typography.fontWeight.medium
+          }}>
+            Loading Dashboard...
+          </div>
         </div>
       </main>
     );
@@ -275,29 +306,61 @@ export default function DashboardPage() {
   ];
 
   return (
-    <main style={pageStyle}>
+    <main style={pageStyle} className="animate-fade-in">
       <header style={headerStyle}>
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: theme.spacing[4] }}>
           <div style={{
-            width: "32px",
-            height: "32px",
-            backgroundColor: "#ee0000",
-            borderRadius: "4px",
+            width: "48px",
+            height: "48px",
+            background: "rgba(255, 255, 255, 0.2)",
+            backdropFilter: "blur(10px)",
+            borderRadius: theme.borderRadius.base,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: "1.2rem"
+            fontSize: "1.5rem",
+            boxShadow: theme.shadows.md,
           }}>
             🛡️
           </div>
-          <h1 style={{ margin: 0, color: "#ffffff", fontSize: "1.125rem", fontWeight: 400 }}>
-            Detections Dashboard
-          </h1>
+          <div>
+            <h1 style={{
+              margin: 0,
+              color: theme.colors.text.inverse,
+              fontSize: theme.typography.fontSize["2xl"],
+              fontWeight: theme.typography.fontWeight.semibold,
+              letterSpacing: theme.typography.letterSpacing.tight,
+            }}>
+              Security Detections Dashboard
+            </h1>
+            <p style={{
+              margin: 0,
+              color: "rgba(255, 255, 255, 0.8)",
+              fontSize: theme.typography.fontSize.xs,
+              fontWeight: theme.typography.fontWeight.regular,
+            }}>
+              Real-time threat detection and AI-powered analysis
+            </p>
+          </div>
         </div>
 
-        <span style={{ color: "#d2d2d2", fontSize: "0.875rem" }}>
-          Powered by IBM Bob
-        </span>
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: theme.spacing[3],
+          background: "rgba(255, 255, 255, 0.1)",
+          padding: `${theme.spacing[2]} ${theme.spacing[4]}`,
+          borderRadius: theme.borderRadius.base,
+          backdropFilter: "blur(10px)",
+        }}>
+          <Zap size={16} />
+          <span style={{
+            fontSize: theme.typography.fontSize.xs,
+            fontWeight: theme.typography.fontWeight.medium,
+          }}>
+            Powered by IBM Bob AI
+          </span>
+        </div>
       </header>
 
       <section style={statusBarStyle}>
@@ -366,37 +429,54 @@ export default function DashboardPage() {
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
           <button
             onClick={handleTriggerScan}
+            className="btn btn-primary"
             style={{
-              padding: "0.5rem 1rem",
-              backgroundColor: "#0066cc",
+              display: "flex",
+              alignItems: "center",
+              gap: theme.spacing[2],
+              padding: `${theme.spacing[3]} ${theme.spacing[5]}`,
+              background: gradients.primary,
               border: "none",
-              borderRadius: "3px",
-              color: "#fff",
-              fontSize: "0.875rem",
-              fontWeight: 600,
+              borderRadius: theme.borderRadius.sm,
+              color: theme.colors.text.inverse,
+              fontSize: theme.typography.fontSize.sm,
+              fontWeight: theme.typography.fontWeight.semibold,
               cursor: "pointer",
+              boxShadow: theme.shadows.base,
+              transition: `all ${theme.transitions.base}`,
             }}
           >
-            🔍 Run Security Scan
+            <RefreshCw size={16} />
+            Run Security Scan
           </button>
 
           <button
             onClick={handleClearAll}
+            className="btn btn-secondary"
             style={{
-              padding: "0.5rem 1rem",
-              backgroundColor: "#ffffff",
-              border: "1px solid #d2d2d2",
-              borderRadius: "3px",
-              color: "#151515",
-              fontSize: "0.875rem",
-              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              gap: theme.spacing[2],
+              padding: `${theme.spacing[3]} ${theme.spacing[5]}`,
+              backgroundColor: theme.colors.background.primary,
+              border: `1px solid ${theme.colors.border.subtle}`,
+              borderRadius: theme.borderRadius.sm,
+              color: theme.colors.text.primary,
+              fontSize: theme.typography.fontSize.sm,
+              fontWeight: theme.typography.fontWeight.semibold,
               cursor: "pointer",
+              transition: `all ${theme.transitions.base}`,
             }}
           >
+            <Trash2 size={16} />
             Clear Dashboard
           </button>
 
-          <span style={{ color: "#6a6e73", fontSize: "0.875rem" }}>
+          <span style={{
+            color: theme.colors.text.secondary,
+            fontSize: theme.typography.fontSize.xs,
+            fontFamily: theme.typography.fontFamily.mono,
+          }}>
             Last updated: {new Date().toLocaleTimeString()}
           </span>
         </div>
@@ -404,30 +484,43 @@ export default function DashboardPage() {
 
       {showNotification && (
         <div
+          className="animate-slide-in-down"
           style={{
             position: "fixed",
-            top: "1.5rem",
-            right: "1.5rem",
-            backgroundColor: "#ffffff",
-            border: "1px solid #0066cc",
-            borderRadius: "3px",
-            padding: "1rem 1.5rem",
-            color: "#151515",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-            zIndex: 1000,
+            top: theme.spacing[6],
+            right: theme.spacing[6],
+            backgroundColor: theme.colors.background.primary,
+            border: `2px solid ${theme.colors.primary[500]}`,
+            borderRadius: theme.borderRadius.base,
+            padding: `${theme.spacing[4]} ${theme.spacing[6]}`,
+            color: theme.colors.text.primary,
+            boxShadow: theme.shadows.xl,
+            zIndex: theme.zIndex.tooltip,
+            minWidth: "300px",
+            display: "flex",
+            alignItems: "center",
+            gap: theme.spacing[3],
           }}
         >
-          🔔 {notificationMessage}
+          <Bell size={20} color={theme.colors.primary[500]} />
+          <span style={{
+            flex: 1,
+            fontSize: theme.typography.fontSize.sm,
+            fontWeight: theme.typography.fontWeight.medium,
+          }}>
+            {notificationMessage}
+          </span>
         </div>
       )}
 
       <nav
         style={{
           display: "flex",
-          borderBottom: "1px solid #d2d2d2",
+          borderBottom: `2px solid ${theme.colors.border.subtle}`,
           marginBottom: "0",
-          backgroundColor: "#ffffff",
-          padding: "0 2rem",
+          backgroundColor: theme.colors.background.primary,
+          padding: `0 ${theme.spacing[8]}`,
+          boxShadow: theme.shadows.sm,
         }}
       >
         {tabs.map((tab) => (
@@ -436,8 +529,9 @@ export default function DashboardPage() {
             onClick={() => setActiveTab(tab.id)}
             style={{
               ...tabButtonBase,
-              borderBottomColor: activeTab === tab.id ? "#0066cc" : "transparent",
-              color: activeTab === tab.id ? "#0066cc" : "#6a6e73",
+              borderBottomColor: activeTab === tab.id ? theme.colors.primary[500] : "transparent",
+              color: activeTab === tab.id ? theme.colors.primary[500] : theme.colors.text.secondary,
+              transform: activeTab === tab.id ? "translateY(2px)" : "translateY(0)",
             }}
           >
             {tab.label}
@@ -453,14 +547,40 @@ export default function DashboardPage() {
             bobOutput={bobOutput}
           />
 
+          {/* Data Visualization Section */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(500px, 1fr))",
+            gap: theme.spacing[6],
+            padding: `0 ${theme.spacing[8]}`,
+            marginTop: theme.spacing[6],
+          }}>
+            <TimelineChart findings={findings} incidents={incidents} />
+            <SeverityChart findings={findings} />
+          </div>
+
           <div style={sectionStyle}>
-            <h2>Recent Findings</h2>
+            <h2 style={{
+              fontSize: theme.typography.fontSize.xl,
+              fontWeight: theme.typography.fontWeight.semibold,
+              color: theme.colors.text.primary,
+              marginBottom: theme.spacing[4],
+            }}>
+              Recent Findings
+            </h2>
             <FindingsTable findings={findings.slice(0, 5)} />
           </div>
 
           {selectedIncident && (
             <div style={sectionStyle}>
-              <h2>Critical Incident</h2>
+              <h2 style={{
+                fontSize: theme.typography.fontSize.xl,
+                fontWeight: theme.typography.fontWeight.semibold,
+                color: theme.colors.text.primary,
+                marginBottom: theme.spacing[4],
+              }}>
+                Critical Incident
+              </h2>
               <IncidentDetail incident={selectedIncident} />
             </div>
           )}
@@ -468,8 +588,20 @@ export default function DashboardPage() {
       )}
 
       {activeTab === "findings" && (
-        <section>
-          <h2>All Security Findings</h2>
+        <section style={sectionStyle}>
+          <h2 style={{
+            fontSize: theme.typography.fontSize.xl,
+            fontWeight: theme.typography.fontWeight.semibold,
+            color: theme.colors.text.primary,
+            marginBottom: theme.spacing[4],
+          }}>
+            All Security Findings
+          </h2>
+          
+          <div style={{ marginBottom: theme.spacing[6] }}>
+            <SeverityChart findings={findings} />
+          </div>
+          
           <FindingsTable findings={findings} />
         </section>
       )}

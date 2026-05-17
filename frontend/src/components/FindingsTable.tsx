@@ -1,19 +1,11 @@
-import { AlertCircle, Shield, Database, Activity, Server, FileText } from 'lucide-react';
+import { AlertCircle, Shield, Database, Activity, Server, FileText, Clock } from 'lucide-react';
 import type { Finding } from '../api/types';
+import { theme, getSeverityColor } from '../styles/theme';
 
 interface FindingsTableProps {
   findings: Finding[];
 }
 
-const getSeverityColor = (severity: string): string => {
-  switch (severity) {
-    case 'critical': return '#c9190b';
-    case 'high': return '#c9190b';
-    case 'medium': return '#f0ab00';
-    case 'low': return '#0066cc';
-    default: return '#6a6e73';
-  }
-};
 
 const getCategoryIcon = (category: string) => {
   switch (category) {
@@ -31,64 +23,128 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
   if (findings.length === 0) {
     return (
       <div style={{
-        backgroundColor: '#ffffff',
-        border: '1px solid #d2d2d2',
-        borderRadius: '0',
-        padding: '2rem',
+        backgroundColor: theme.colors.background.primary,
+        border: `1px solid ${theme.colors.border.subtle}`,
+        borderRadius: theme.borderRadius.base,
+        padding: theme.spacing[8],
         textAlign: 'center',
-        color: '#6a6e73'
+        color: theme.colors.text.secondary,
+        boxShadow: theme.shadows.base,
       }}>
-        No findings detected
+        <Shield size={48} color={theme.colors.gray[400]} style={{ margin: '0 auto 1rem' }} />
+        <p style={{
+          fontSize: theme.typography.fontSize.base,
+          fontWeight: theme.typography.fontWeight.medium,
+          margin: 0,
+        }}>
+          No findings detected
+        </p>
+        <p style={{
+          fontSize: theme.typography.fontSize.sm,
+          color: theme.colors.text.tertiary,
+          marginTop: theme.spacing[2],
+        }}>
+          Run a security scan to detect vulnerabilities
+        </p>
       </div>
     );
   }
 
   return (
-    <div style={{
-      backgroundColor: '#ffffff',
-      border: '1px solid #d2d2d2',
-      borderRadius: '0',
-      overflow: 'hidden',
-      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-    }}>
+    <div
+      className="animate-fade-in"
+      style={{
+        backgroundColor: theme.colors.background.primary,
+        border: `1px solid ${theme.colors.border.subtle}`,
+        borderRadius: theme.borderRadius.base,
+        overflow: 'hidden',
+        boxShadow: theme.shadows.md,
+        transition: `all ${theme.transitions.base}`,
+      }}
+    >
       <div style={{
-        padding: '1rem 1.5rem',
-        borderBottom: '1px solid #d2d2d2',
+        padding: `${theme.spacing[5]} ${theme.spacing[6]}`,
+        borderBottom: `1px solid ${theme.colors.border.subtle}`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: '#f5f5f5'
+        background: `linear-gradient(135deg, ${theme.colors.background.primary} 0%, ${theme.colors.background.secondary} 100%)`,
       }}>
-        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#151515', margin: 0 }}>
-          Most recent detections
+        <h2 style={{
+          fontSize: theme.typography.fontSize.lg,
+          fontWeight: theme.typography.fontWeight.semibold,
+          color: theme.colors.text.primary,
+          margin: 0,
+          display: 'flex',
+          alignItems: 'center',
+          gap: theme.spacing[2],
+        }}>
+          <AlertCircle size={20} color={theme.colors.primary[500]} />
+          Recent Security Findings
         </h2>
         <span style={{
-          fontSize: '0.875rem',
-          color: '#6a6e73',
-          backgroundColor: '#ffffff',
-          padding: '0.25rem 0.75rem',
-          borderRadius: '3px',
-          border: '1px solid #d2d2d2'
+          fontSize: theme.typography.fontSize.xs,
+          color: theme.colors.text.inverse,
+          backgroundColor: theme.colors.primary[500],
+          padding: `${theme.spacing[1]} ${theme.spacing[3]}`,
+          borderRadius: theme.borderRadius.full,
+          fontWeight: theme.typography.fontWeight.semibold,
+          letterSpacing: theme.typography.letterSpacing.wide,
         }}>
-          {findings.length} total
+          {findings.length} TOTAL
         </span>
       </div>
       
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ backgroundColor: '#f5f5f5', borderBottom: '1px solid #d2d2d2' }}>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#6a6e73', textTransform: 'uppercase' }}>
+            <tr style={{
+              backgroundColor: theme.colors.background.secondary,
+              borderBottom: `2px solid ${theme.colors.border.subtle}`
+            }}>
+              <th style={{
+                padding: `${theme.spacing[3]} ${theme.spacing[4]}`,
+                textAlign: 'left',
+                fontSize: theme.typography.fontSize.xs,
+                fontWeight: theme.typography.fontWeight.semibold,
+                color: theme.colors.text.secondary,
+                textTransform: 'uppercase',
+                letterSpacing: theme.typography.letterSpacing.wider,
+              }}>
                 Severity
               </th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#6a6e73', textTransform: 'uppercase' }}>
-                Tactic & Technique
+              <th style={{
+                padding: `${theme.spacing[3]} ${theme.spacing[4]}`,
+                textAlign: 'left',
+                fontSize: theme.typography.fontSize.xs,
+                fontWeight: theme.typography.fontWeight.semibold,
+                color: theme.colors.text.secondary,
+                textTransform: 'uppercase',
+                letterSpacing: theme.typography.letterSpacing.wider,
+              }}>
+                Finding Type & Evidence
               </th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#6a6e73', textTransform: 'uppercase' }}>
-                Detect Time
+              <th style={{
+                padding: `${theme.spacing[3]} ${theme.spacing[4]}`,
+                textAlign: 'left',
+                fontSize: theme.typography.fontSize.xs,
+                fontWeight: theme.typography.fontWeight.semibold,
+                color: theme.colors.text.secondary,
+                textTransform: 'uppercase',
+                letterSpacing: theme.typography.letterSpacing.wider,
+              }}>
+                Detected
               </th>
-              <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#6a6e73', textTransform: 'uppercase' }}>
-                Host
+              <th style={{
+                padding: `${theme.spacing[3]} ${theme.spacing[4]}`,
+                textAlign: 'left',
+                fontSize: theme.typography.fontSize.xs,
+                fontWeight: theme.typography.fontWeight.semibold,
+                color: theme.colors.text.secondary,
+                textTransform: 'uppercase',
+                letterSpacing: theme.typography.letterSpacing.wider,
+              }}>
+                Repository
               </th>
             </tr>
           </thead>
@@ -97,48 +153,95 @@ export default function FindingsTable({ findings }: FindingsTableProps) {
               <tr
                 key={finding.finding_id}
                 style={{
-                  borderBottom: index < findings.length - 1 ? '1px solid #f0f0f0' : 'none',
-                  backgroundColor: '#ffffff'
+                  borderBottom: index < findings.length - 1 ? `1px solid ${theme.colors.border.subtle}` : 'none',
+                  backgroundColor: theme.colors.background.primary,
+                  transition: `all ${theme.transitions.fast}`,
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.colors.background.secondary;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.colors.background.primary;
                 }}
               >
-                <td style={{ padding: '1rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <td style={{ padding: theme.spacing[4] }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing[3] }}>
                     <div style={{
-                      width: '32px',
-                      height: '32px',
+                      width: '40px',
+                      height: '40px',
                       borderRadius: '50%',
-                      backgroundColor: getSeverityColor(finding.severity_hint),
+                      backgroundColor: `${getSeverityColor(finding.severity_hint)}20`,
+                      border: `2px solid ${getSeverityColor(finding.severity_hint)}`,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: '#ffffff',
-                      fontSize: '0.75rem',
-                      fontWeight: 600
+                      color: getSeverityColor(finding.severity_hint),
+                      fontSize: theme.typography.fontSize.base,
+                      fontWeight: theme.typography.fontWeight.semibold,
                     }}>
                       {getCategoryIcon(finding.category)}
                     </div>
                     <div>
-                      <div style={{ fontSize: '0.875rem', color: '#151515', fontWeight: 600 }}>
-                        High
+                      <div style={{
+                        fontSize: theme.typography.fontSize.sm,
+                        color: theme.colors.text.primary,
+                        fontWeight: theme.typography.fontWeight.semibold,
+                        textTransform: 'capitalize',
+                      }}>
+                        {finding.severity_hint}
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: '#6a6e73' }}>
-                        +1 other
+                      <div style={{
+                        fontSize: theme.typography.fontSize.xs,
+                        color: theme.colors.text.tertiary,
+                      }}>
+                        {finding.category.replace(/_/g, ' ')}
                       </div>
                     </div>
                   </div>
                 </td>
-                <td style={{ padding: '1rem' }}>
-                  <div style={{ fontSize: '0.875rem', color: '#151515', marginBottom: '0.25rem' }}>
+                <td style={{ padding: theme.spacing[4] }}>
+                  <div style={{
+                    fontSize: theme.typography.fontSize.sm,
+                    color: theme.colors.text.primary,
+                    marginBottom: theme.spacing[1],
+                    fontWeight: theme.typography.fontWeight.medium,
+                  }}>
                     {finding.finding_type.replace(/_/g, ' ')}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#6a6e73' }}>
-                    {finding.evidence.substring(0, 50)}...
+                  <div style={{
+                    fontSize: theme.typography.fontSize.xs,
+                    color: theme.colors.text.secondary,
+                    fontFamily: theme.typography.fontFamily.mono,
+                    backgroundColor: theme.colors.background.secondary,
+                    padding: `${theme.spacing[1]} ${theme.spacing[2]}`,
+                    borderRadius: theme.borderRadius.sm,
+                    display: 'inline-block',
+                    maxWidth: '400px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {finding.evidence.substring(0, 60)}...
                   </div>
                 </td>
-                <td style={{ padding: '1rem', fontSize: '0.875rem', color: '#151515' }}>
-                  {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                <td style={{
+                  padding: theme.spacing[4],
+                  fontSize: theme.typography.fontSize.sm,
+                  color: theme.colors.text.secondary,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing[2] }}>
+                    <Clock size={14} color={theme.colors.text.tertiary} />
+                    {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </div>
                 </td>
-                <td style={{ padding: '1rem', fontSize: '0.875rem', color: '#151515' }}>
+                <td style={{
+                  padding: theme.spacing[4],
+                  fontSize: theme.typography.fontSize.sm,
+                  color: theme.colors.primary[500],
+                  fontFamily: theme.typography.fontFamily.mono,
+                  fontWeight: theme.typography.fontWeight.medium,
+                }}>
                   {finding.repo_name}
                 </td>
               </tr>
