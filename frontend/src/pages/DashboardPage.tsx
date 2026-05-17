@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell, Wifi, WifiOff } from "lucide-react";
 import { apiClient } from "../api/client";
 import type { BobOutput, Finding, Incident } from "../api/types";
+import type { BobAnalysisReport } from "../api/client";
 import {
   normalizeBobOutput,
   normalizeFinding,
@@ -94,7 +95,7 @@ export default function DashboardPage() {
   const analyzedIncidentIdsRef = useRef<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
-
+  const [bobReports, setBobReports] = useState<BobAnalysisReport[]>([]);
   const [showNotification, setShowNotification] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState("");
 
@@ -213,7 +214,6 @@ export default function DashboardPage() {
       notify(`Scanning ${pathToScan}...`, 3000);
 
       const result = await apiClient.triggerScan([pathToScan], false, true);
-
       if (result.new_findings.length > 0) {
         setFindings((prev) =>
           mergeById(prev, result.new_findings, "finding_id")
@@ -232,7 +232,9 @@ export default function DashboardPage() {
       if (result.bob_analysis) {
         setBobOutput(normalizeBobOutput(result.bob_analysis));
       }
-
+      if (result.bob_analyses.length > 0) {
+        setBobReports(result.bob_analyses);
+      }
       notify("Repository scan completed.", 3000);
 
       window.setTimeout(() => {
@@ -256,6 +258,7 @@ export default function DashboardPage() {
     setIncidents([]);
     setSelectedIncident(null);
     setBobOutput(null);
+    setBobReports([]);
     setActiveTab("overview");
 
     clearNewFindings();
@@ -493,38 +496,53 @@ export default function DashboardPage() {
           <FindingsTable findings={findings} />
         </section>
       )}
-
       {activeTab === "incident" && (
         <section>
-          <h2>Incident Analysis</h2>
+          <h2 style={{ padding: "0 2rem" }}>Incident Analysis</h2>
 
-          {selectedIncident ? (
-            <>
-              <IncidentDetail incident={selectedIncident} />
+          {incidents.length > 0 ? (
+            <div style={{ display: "grid", gap: "1.5rem", padding: "0 2rem" }}>
+              {incidents.map((incident, index) => (
+                <div
+                  key={incident.incident_id}
+                  style={{
+                    backgroundColor: "#ffffff",
+                    border: "1px solid #d2d2d2",
+                    borderRadius: "6px",
+                    padding: "1rem",
+                  }}
+                >
+                  <h3>
+                    Incident {index + 1}: {incident.title}
+                  </h3>
 
-              <div style={sectionStyle}>
-                <h3>Attack Path</h3>
-                {selectedIncident.attack_path?.nodes?.length > 0 ? (
-                  <AttackPathGraph attackPath={selectedIncident.attack_path} />
-                ) : (
-                  <p style={{ color: "#8b949e" }}>No attack path available.</p>
-                )}
-              </div>
+                  <IncidentDetail incident={incident} />
 
-              <div style={sectionStyle}>
-                <h3>Related Findings</h3>
-                <FindingsTable findings={selectedIncident.findings ?? []} />
-              </div>
+                  <div style={{ marginTop: "1.5rem" }}>
+                    <h4>Attack Path</h4>
+                    {incident.attack_path?.nodes?.length > 0 ? (
+                      <AttackPathGraph attackPath={incident.attack_path} />
+                    ) : (
+                      <p style={{ color: "#8b949e" }}>No attack path available.</p>
+                    )}
+                  </div>
 
-              {(selectedIncident.related_memory?.length ?? 0) > 0 && (
-                <div style={sectionStyle}>
-                  <h3>AI Memory Patterns</h3>
-                  <MemoryViewer memories={selectedIncident.related_memory ?? []} />
+                  <div style={{ marginTop: "1.5rem" }}>
+                    <h4>Related Findings</h4>
+                    <FindingsTable findings={incident.findings ?? []} />
+                  </div>
+
+                  {(incident.related_memory?.length ?? 0) > 0 && (
+                    <div style={{ marginTop: "1.5rem" }}>
+                      <h4>AI Memory Patterns</h4>
+                      <MemoryViewer memories={incident.related_memory ?? []} />
+                    </div>
+                  )}
                 </div>
-              )}
-            </>
+              ))}
+            </div>
           ) : (
-            <div style={{ color: "#8b949e", padding: "2rem 0" }}>
+            <div style={{ color: "#8b949e", padding: "2rem" }}>
               <h3>No incidents detected yet</h3>
               <p>Run a security scan to detect and correlate security incidents.</p>
             </div>
@@ -532,10 +550,51 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {activeTab === "analysis" && (
-        <section>
-          <h2>IBM Bob AI Analysis & Remediation</h2>
+        {activeTab === "analysis" && (
+    <section>
+      <h2 style={{ padding: "0 2rem" }}>IBM Bob AI Analysis & Remediation</h2>
 
+      {bobReports.length > 0 ? (
+        <div style={{ display: "grid", gap: "1.5rem", padding: "0 2rem" }}>
+          {bobReports.map((report, index) => (
+            <div
+              key={`${report.incident_id}-${index}`}
+              style={{
+                backgroundColor: "#ffffff",
+                border: "1px solid #d2d2d2",
+                borderRadius: "6px",
+                padding: "1rem",
+              }}
+            >
+              <h3>
+                Report {index + 1}: {report.incident_title}
+              </h3>
+
+              <p style={{ color: "#6a6e73" }}>
+                Incident ID: {report.incident_id} · Findings: {report.finding_count}
+              </p>
+
+              <BobAnalysis bobOutput={report.analysis} />
+
+              <div style={sectionStyle}>
+                <h4>Incident Report</h4>
+                <ReportViewer report={report.analysis.incident_report} />
+              </div>
+
+              <div style={sectionStyle}>
+                <h4>AI Memory Created</h4>
+                <MemoryViewer memories={[report.analysis.ai_memory]} />
+              </div>
+
+              <div style={sectionStyle}>
+                <h4>Pull Request Draft</h4>
+                <PRDraftViewer prDraft={report.analysis.pr_draft} />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <>
           <BobAnalysis bobOutput={bobOutput} />
 
           {bobOutput && (
@@ -556,8 +615,10 @@ export default function DashboardPage() {
               </div>
             </>
           )}
-        </section>
+        </>
       )}
+    </section>
+  )}
     </main>
   );
 }

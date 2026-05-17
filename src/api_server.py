@@ -43,6 +43,7 @@ CONTRACTS_DIR = ROOT_DIR / "contracts"
 findings_store: list[dict[str, Any]] = []
 incidents_store: list[dict[str, Any]] = []
 bob_analysis_store: dict[str, Any] | None = None
+bob_analyses_store: list[dict[str, Any]] = []
 updates_store: list[dict[str, Any]] = []
 
 app = FastAPI(title="JeffAPI")
@@ -1143,6 +1144,86 @@ def normalize_incident_for_frontend(incident: dict[str, Any]) -> dict[str, Any]:
         "related_memory": normalized.get("related_memory") or [],
         "timestamp": normalized.get("timestamp") or utc_now(),
     }
+
+def build_fallback_incidents_from_findings(
+    findings: list[dict[str, Any]],
+    scan_paths: list[str],
+) -> list[dict[str, Any]]:
+    incidents: list[dict[str, Any]] = []
+
+    for index, finding in enumerate(findings, start=1):
+        severity = str(
+            finding.get("severity_hint")
+            or finding.get("severity")
+            or "medium"
+        ).lower()
+
+        file_value = finding.get("file") or "unknown"
+        finding_type = finding.get("finding_type") or finding.get("type") or "security_finding"
+
+        incident = {
+            "incident_id": f"INC-{uuid4().hex[:8]}",
+            "title": f"Finding {index}: {finding_type} in {file_value}",
+            "severity": severity,
+            "severity_level": severity_to_level(severity),
+            "confidence_score": 0.75,
+            "confidence_reasons": [
+                "Repository scanner detected this security finding.",
+                f"Finding type: {finding_type}",
+                f"Evidence: {finding.get('evidence', 'No evidence provided')}",
+                f"Scanned paths: {', '.join(scan_paths)}",
+            ],
+            "confidence_limitations": [
+                "This incident was generated directly from an individual scanner finding.",
+            ],
+            "affected_repos": [finding.get("repo_name")] if finding.get("repo_name") else [],
+            "affected_files": [file_value] if file_value else [],
+            "affected_endpoints": [finding.get("endpoint")] if finding.get("endpoint") else [],
+            "affected_database_tables": (
+                [finding.get("database_table")]
+                if finding.get("database_table")
+                else []
+            ),
+            "findings": [finding],
+            "attack_path": {
+                "nodes": [
+                    {
+                        "id": "repo",
+                        "label": "Scanned Repository",
+                        "type": "infrastructure",
+                    },
+                    {
+                        "id": "finding",
+                        "label": str(finding_type),
+                        "type": "runtime",
+                    },
+                    {
+                        "id": "impact",
+                        "label": "Potential Security Impact",
+                        "type": "impact",
+                    },
+                ],
+                "edges": [
+                    {
+                        "from": "repo",
+                        "to": "finding",
+                        "label": "contains",
+                    },
+                    {
+                        "from": "finding",
+                        "to": "impact",
+                        "label": "may cause",
+                    },
+                ],
+            },
+            "related_memory": [],
+            "timestamp": utc_now(),
+        }
+
+        incidents.append(incident)
+
+    return incidents
+
 def run_repo_scan_pipeline(
     paths: list[str],
     use_mock: bool = False,
@@ -1235,21 +1316,28 @@ def run_repo_scan_pipeline(
         incidents.append(incident)
 
     if not incidents and findings:
-        fallback_incident = build_fallback_incident_from_findings(
+        fallback_incidents = build_fallback_incidents_from_findings(
             findings=findings,
             scan_paths=resolved_paths,
         )
 
-        if fallback_incident:
+        for fallback_incident in fallback_incidents:
             attach_related_memory(fallback_incident)
             upsert_incident(fallback_incident)
             incidents.append(fallback_incident)
 
     analysis = None
+    analyses: list[dict[str, Any]] = []
 
     if use_bob and incidents:
-        analysis = run_bob_reasoning_for_incident(incidents[0])
-        bob_analysis_store = analysis
+        analyses = run_bob_reasoning_for_all_incidents(incidents)
+
+        if analyses:
+            analysis = analyses[0]["analysis"]
+            bob_analysis_store = analysis
+
+        global bob_analyses_store
+        bob_analyses_store = analyses
 
     return {
         "run_id": f"SCAN-{uuid4().hex[:8]}",
@@ -1257,7 +1345,32 @@ def run_repo_scan_pipeline(
         "findings": findings,
         "incidents": incidents,
         "bob_analysis": analysis,
+        "bob_analyses": analyses,
     }
+def run_bob_reasoning_for_all_incidents(
+    incidents: list[dict[str, Any]],
+    max_reports: int = 10,
+) -> list[dict[str, Any]]:
+    """
+    Runs Bob analysis for multiple incidents and returns a report list.
+
+    max_reports prevents very large scans from making too many watsonx calls.
+    """
+    reports: list[dict[str, Any]] = []
+
+    for incident in incidents[:max_reports]:
+        analysis = run_bob_reasoning_for_incident(incident)
+
+        reports.append(
+            {
+                "incident_id": incident.get("incident_id"),
+                "incident_title": incident.get("title"),
+                "finding_count": len(incident.get("findings", [])),
+                "analysis": analysis,
+            }
+        )
+
+    return reports
 @app.post("/api/scan")
 async def run_scan(payload: dict[str, Any]) -> dict[str, Any]:
     try:
@@ -1280,6 +1393,7 @@ async def run_scan(payload: dict[str, Any]) -> dict[str, Any]:
                 "new_findings": result["findings"],
                 "new_incidents": result["incidents"],
                 "bob_analysis": result["bob_analysis"],
+                "bob_analyses": result.get("bob_analyses", []),
             }
         )
 
@@ -1292,6 +1406,7 @@ async def run_scan(payload: dict[str, Any]) -> dict[str, Any]:
             "new_findings": result["findings"],
             "new_incidents": result["incidents"],
             "bob_analysis": result["bob_analysis"],
+            "bob_analyses": result.get("bob_analyses", []),
             "total_findings": len(findings_store),
             "total_incidents": len(incidents_store),
             "memory_saved": (
@@ -1421,4 +1536,10 @@ def clear_ai_memory() -> dict[str, Any]:
     return {
         "status": "success",
         "message": "AI memory cleared",
+    }
+@app.get("/api/bob-analyses")
+def get_all_bob_analyses() -> dict[str, Any]:
+    return {
+        "count": len(bob_analyses_store),
+        "reports": bob_analyses_store,
     }

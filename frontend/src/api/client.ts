@@ -43,6 +43,13 @@ export type AIMemoryResponse = {
   memories: any[];
 };
 
+export type BobAnalysisReport = {
+  incident_id: string;
+  incident_title: string;
+  finding_count: number;
+  analysis: BobOutput;
+};
+
 export type ScanResponse = {
   status: string;
   message: string;
@@ -51,11 +58,9 @@ export type ScanResponse = {
   new_findings: Finding[];
   new_incidents: Incident[];
   bob_analysis: BobOutput | null;
+  bob_analyses: BobAnalysisReport[];
   total_findings?: number;
   total_incidents?: number;
-  findings_count?: number;
-  incidents_count?: number;
-  bob_status?: string;
   memory_saved?: boolean;
   saved_memory_id?: string | null;
 };
@@ -224,6 +229,14 @@ export const apiClient = {
       bob_analysis: response.data?.bob_analysis
         ? normalizeBobOutput(response.data.bob_analysis)
         : null,
+      bob_analyses: Array.isArray(response.data?.bob_analyses)
+      ? response.data.bob_analyses.map((item: any) => ({
+          incident_id: String(item.incident_id ?? ""),
+          incident_title: String(item.incident_title ?? "Security incident"),
+          finding_count: Number(item.finding_count ?? 0),
+          analysis: normalizeBobOutput(item.analysis),
+        }))
+      : [],
     };
   },
 
