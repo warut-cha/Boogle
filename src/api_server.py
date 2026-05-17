@@ -898,7 +898,251 @@ def normalize_incident_for_frontend(incident: dict[str, Any]) -> dict[str, Any]:
         "related_memory": normalized.get("related_memory") or [],
         "timestamp": normalized.get("timestamp") or utc_now(),
     }
+def severity_to_level(severity: str) -> int:
+    severity = str(severity or "medium").lower()
 
+    return {
+        "info": 1,
+        "low": 2,
+        "medium": 3,
+        "high": 4,
+        "critical": 5,
+    }.get(severity, 3)
+
+
+def normalize_scanner_finding(finding: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(finding)
+
+    finding_type = (
+        normalized.get("finding_type")
+        or normalized.get("type")
+        or normalized.get("category")
+        or "runtime_anomaly"
+    )
+
+    severity = (
+        normalized.get("severity_hint")
+        or normalized.get("severity")
+        or "medium"
+    )
+
+    file_value = (
+        normalized.get("file")
+        or normalized.get("file_path")
+        or normalized.get("path")
+        or "unknown"
+    )
+
+    evidence_value = (
+        normalized.get("evidence")
+        or normalized.get("description")
+        or normalized.get("message")
+        or f"{finding_type} detected in {file_value}"
+    )
+
+    normalized["finding_id"] = normalized.get("finding_id") or f"FIND-{uuid4().hex[:8]}"
+    normalized["repo_name"] = normalized.get("repo_name") or "scanned-repository"
+    normalized["finding_type"] = str(finding_type)
+    normalized["type"] = str(finding_type)
+    normalized["category"] = normalized.get("category") or "unknown"
+    normalized["severity_hint"] = str(severity).lower()
+    normalized["severity"] = str(severity).lower()
+    normalized["source"] = normalized.get("source") or "rust_scanner"
+    normalized["file"] = str(file_value)
+    normalized["file_path"] = str(file_value)
+    normalized["line"] = normalized.get("line")
+    normalized["endpoint"] = normalized.get("endpoint")
+    normalized["database_table"] = normalized.get("database_table")
+    normalized["evidence"] = str(evidence_value)
+    normalized["description"] = str(evidence_value)
+    normalized["masked_value"] = normalized.get("masked_value")
+    normalized["timestamp"] = normalized.get("timestamp") or utc_now()
+
+    return normalized
+
+
+def build_fallback_incident_from_findings(
+    findings: list[dict[str, Any]],
+    scan_paths: list[str],
+) -> dict[str, Any] | None:
+    if not findings:
+        return None
+
+    highest_severity = "medium"
+
+    for finding in findings:
+        severity = str(
+            finding.get("severity_hint")
+            or finding.get("severity")
+            or "medium"
+        ).lower()
+
+        if severity_to_level(severity) > severity_to_level(highest_severity):
+            highest_severity = severity
+
+    affected_repos = sorted({
+        str(finding.get("repo_name"))
+        for finding in findings
+        if finding.get("repo_name")
+    })
+
+    affected_files = sorted({
+        str(finding.get("file"))
+        for finding in findings
+        if finding.get("file")
+    })
+
+    affected_endpoints = sorted({
+        str(finding.get("endpoint"))
+        for finding in findings
+        if finding.get("endpoint")
+    })
+
+    affected_database_tables = sorted({
+        str(finding.get("database_table"))
+        for finding in findings
+        if finding.get("database_table")
+    })
+
+    finding_types = sorted({
+        str(finding.get("finding_type") or finding.get("type") or "unknown")
+        for finding in findings
+    })
+
+    return {
+        "incident_id": f"INC-{uuid4().hex[:8]}",
+        "title": f"Repository scan detected {len(findings)} security finding(s)",
+        "severity": highest_severity,
+        "severity_level": severity_to_level(highest_severity),
+        "confidence_score": 0.75,
+        "confidence_reasons": [
+            "Repository scanner detected one or more security findings.",
+            f"Finding types: {', '.join(finding_types)}",
+            f"Scanned paths: {', '.join(scan_paths)}",
+        ],
+        "confidence_limitations": [
+            "This incident was created from scan findings because the correlator did not produce a grouped incident.",
+        ],
+        "affected_repos": affected_repos,
+        "affected_files": affected_files,
+        "affected_endpoints": affected_endpoints,
+        "affected_database_tables": affected_database_tables,
+        "findings": findings,
+        "attack_path": {
+            "nodes": [
+                {
+                    "id": "repo",
+                    "label": "Scanned Repository",
+                    "type": "infrastructure",
+                },
+                {
+                    "id": "finding",
+                    "label": "Security Finding",
+                    "type": "runtime",
+                },
+                {
+                    "id": "impact",
+                    "label": "Potential Security Impact",
+                    "type": "impact",
+                },
+            ],
+            "edges": [
+                {
+                    "from": "repo",
+                    "to": "finding",
+                    "label": "contains",
+                },
+                {
+                    "from": "finding",
+                    "to": "impact",
+                    "label": "may cause",
+                },
+            ],
+        },
+        "related_memory": [],
+        "timestamp": utc_now(),
+    }
+
+
+def normalize_incident_for_frontend(incident: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(incident)
+
+    findings = normalized.get("findings", [])
+
+    if not isinstance(findings, list):
+        findings = []
+
+    findings = [
+        normalize_scanner_finding(finding)
+        for finding in findings
+        if isinstance(finding, dict)
+    ]
+
+    severity = normalized.get("severity", "medium")
+
+    if isinstance(severity, dict):
+        severity_level = severity.get("level", 3)
+        severity = (
+            severity.get("level_name")
+            or severity.get("name")
+            or severity.get("label")
+            or "medium"
+        )
+    else:
+        severity_level = normalized.get(
+            "severity_level",
+            severity_to_level(str(severity)),
+        )
+
+    severity = str(severity).lower()
+
+    affected_repos = sorted({
+        str(finding.get("repo_name"))
+        for finding in findings
+        if finding.get("repo_name")
+    })
+
+    affected_files = sorted({
+        str(finding.get("file"))
+        for finding in findings
+        if finding.get("file")
+    })
+
+    affected_endpoints = sorted({
+        str(finding.get("endpoint"))
+        for finding in findings
+        if finding.get("endpoint")
+    })
+
+    affected_database_tables = sorted({
+        str(finding.get("database_table"))
+        for finding in findings
+        if finding.get("database_table")
+    })
+
+    return {
+        "incident_id": normalized.get("incident_id") or f"INC-{uuid4().hex[:8]}",
+        "title": normalized.get("title") or "Repository security incident detected",
+        "severity": severity,
+        "severity_level": int(severity_level),
+        "confidence_score": normalized.get("confidence_score", 0.5),
+        "confidence_reasons": normalized.get(
+            "confidence_reasons",
+            ["Repository scan produced correlated security evidence."],
+        ),
+        "confidence_limitations": normalized.get("confidence_limitations", []),
+        "affected_repos": normalized.get("affected_repos") or affected_repos,
+        "affected_files": normalized.get("affected_files") or affected_files,
+        "affected_endpoints": normalized.get("affected_endpoints") or affected_endpoints,
+        "affected_database_tables": (
+            normalized.get("affected_database_tables")
+            or affected_database_tables
+        ),
+        "findings": findings,
+        "attack_path": normalized.get("attack_path") or {"nodes": [], "edges": []},
+        "related_memory": normalized.get("related_memory") or [],
+        "timestamp": normalized.get("timestamp") or utc_now(),
+    }
 def run_repo_scan_pipeline(
     paths: list[str],
     use_mock: bool = False,
@@ -926,17 +1170,25 @@ def run_repo_scan_pipeline(
 
     upsert_findings(findings)
 
-    raw_incidents = correlator.correlate(findings)
+    raw_incidents: list[dict[str, Any]] = []
 
-    if not isinstance(raw_incidents, list):
+    try:
+        correlated = correlator.correlate(findings)
+
+        if isinstance(correlated, list):
+            raw_incidents = [
+                incident
+                for incident in correlated
+                if isinstance(incident, dict)
+            ]
+
+    except Exception as error:
+        print(f"[scan] Correlator failed, using fallback incident: {error}")
         raw_incidents = []
 
     incidents: list[dict[str, Any]] = []
 
     for raw_incident in raw_incidents:
-        if not isinstance(raw_incident, dict):
-            continue
-
         incident = normalize_incident_for_frontend(raw_incident)
 
         try:
@@ -976,18 +1228,12 @@ def run_repo_scan_pipeline(
         try:
             incident["attack_path"] = attack_path_builder.build_attack_path(incident)
         except Exception:
-            incident["attack_path"] = {
-                "nodes": [],
-                "edges": [],
-            }
+            incident["attack_path"] = {"nodes": [], "edges": []}
 
         attach_related_memory(incident)
         upsert_incident(incident)
         incidents.append(incident)
 
-    # Important fallback:
-    # If scanner found findings but correlator created no incidents,
-    # still create one incident so Bob and Incident Analysis can work.
     if not incidents and findings:
         fallback_incident = build_fallback_incident_from_findings(
             findings=findings,
