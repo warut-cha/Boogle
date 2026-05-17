@@ -13,6 +13,7 @@ const FINDINGS_STORAGE_KEY = "bob_sentinel_findings";
 const INCIDENTS_STORAGE_KEY = "bob_sentinel_incidents";
 const BOB_OUTPUT_STORAGE_KEY = "bob_sentinel_bob_output";
 
+
 function loadStoredJson<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
@@ -86,7 +87,9 @@ export const apiClient = {
       return loadStoredJson<Finding[]>(FINDINGS_STORAGE_KEY, []);
     }
   },
-
+  async scanCurrentRepo(): Promise<ScanResponse> {
+    return this.triggerScan(["."], false, true);
+  },
   async getIncidents(): Promise<Incident[]> {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/incidents`);

@@ -87,6 +87,7 @@ function mergeById<T extends Record<string, unknown>>(
 
 export default function DashboardPage() {
   const [findings, setFindings] = useState<Finding[]>([]);
+  const [scanPath, setScanPath] = useState(".");
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [bobOutput, setBobOutput] = useState<BobOutput | null>(null);
@@ -207,39 +208,41 @@ export default function DashboardPage() {
 
   const handleTriggerScan = async () => {
     try {
-      notify("Starting security scan...", 3000);
+      const pathToScan = scanPath.trim() || ".";
 
-      const result = await apiClient.triggerScan(["./mock-repos"], true, true);
+      notify(`Scanning ${pathToScan}...`, 3000);
 
-      /**
-       * If WebSocket is connected, the backend broadcast will update the UI.
-       * If WebSocket is disconnected, use the REST response as fallback.
-       */
-      if (!isConnected) {
+      const result = await apiClient.triggerScan([pathToScan], false, true);
+
+      if (result.new_findings.length > 0) {
         setFindings((prev) =>
           mergeById(prev, result.new_findings, "finding_id")
         );
+      }
 
+      if (result.new_incidents.length > 0) {
         setIncidents((prev) =>
           mergeById(prev, result.new_incidents, "incident_id")
         );
 
-        if (result.new_incidents.length > 0) {
-          setSelectedIncident(result.new_incidents[0]);
-        }
-
-        if (result.bob_analysis) {
-          setBobOutput(result.bob_analysis);
-        }
+        setSelectedIncident(result.new_incidents[0]);
+        setActiveTab("incident");
       }
 
-      notify(`Scan completed: ${result.run_id}`, 3000);
+      if (result.bob_analysis) {
+        setBobOutput(normalizeBobOutput(result.bob_analysis));
+      }
+
+      notify("Repository scan completed.", 3000);
+
+      window.setTimeout(() => {
+        loadData();
+      }, 800);
     } catch (error) {
       console.error("Failed to trigger scan:", error);
       notify("Failed to start scan. Check backend connection.", 5000);
     }
   };
-
   const handleClearAll = async () => {
     try {
       await apiClient.clearAllData();
@@ -367,7 +370,20 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+       <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <input
+            value={scanPath}
+            onChange={(event) => setScanPath(event.target.value)}
+            placeholder="Path to scan, e.g. . or ./mock-repos"
+            style={{
+              padding: "0.5rem",
+              border: "1px solid #d2d2d2",
+              borderRadius: "3px",
+              minWidth: "260px",
+              fontSize: "0.875rem",
+            }}
+          />
+
           <button
             onClick={handleTriggerScan}
             style={{

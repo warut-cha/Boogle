@@ -16,6 +16,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
 from uuid import uuid4
 import asyncio
+import os
+import yaml
+from uuid import uuid4
+
+import os
+import yaml
+from uuid import uuid4
+
+try:
+    from scanners.rust_scanner_client import RustScannerClient
+    from correlators.incident_correlator import IncidentCorrelator
+    from classifiers.severity_classifier import SeverityClassifier
+    from classifiers.confidence_scorer import ConfidenceScorer
+    from correlators.attack_path_builder import AttackPathBuilder
+except ImportError:
+    from src.scanners.rust_scanner_client import RustScannerClient
+    from src.correlators.incident_correlator import IncidentCorrelator
+    from src.classifiers.severity_classifier import SeverityClassifier
+    from src.classifiers.confidence_scorer import ConfidenceScorer
+    from src.correlators.attack_path_builder import AttackPathBuilder
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 CONTRACTS_DIR = ROOT_DIR / "contracts"
@@ -28,6 +48,40 @@ updates_store: list[dict[str, Any]] = []
 app = FastAPI(title="JeffAPI")
 bob_client = BobClient()
 ai_memory_store = AIMemoryStore()
+def load_config() -> dict[str, Any]:
+    config_path = ROOT_DIR / "config" / "config.yaml"
+
+    if not config_path.exists():
+        return {
+            "analysis": {
+                "correlation": {
+                    "time_window_minutes": 120,
+                    "min_confidence": 0.7,
+                }
+            },
+            "severity": {},
+        }
+
+    with config_path.open("r", encoding="utf-8") as file:
+        return yaml.safe_load(file) or {}
+
+
+CONFIG = load_config()
+
+rust_scanner = RustScannerClient()
+
+correlator = IncidentCorrelator(
+    CONFIG.get("analysis", {}).get("correlation", {})
+)
+
+classifier = SeverityClassifier(
+    CONFIG.get("severity", {})
+)
+
+confidence_scorer = ConfidenceScorer()
+
+attack_path_builder = AttackPathBuilder()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -194,6 +248,52 @@ def run_bob_reasoning_for_incident(
     upsert_incident(incident)
 
     return bob_analysis_store
+
+def resolve_scan_paths(paths: list[str]) -> list[str]:
+    """
+    Resolve user-provided scan paths relative to the project root.
+
+    This allows:
+    - "." to scan the current repo
+    - "./mock-repos"
+    - "mock-repos/frontend-app"
+    - absolute paths inside the project
+
+    It blocks scanning outside the project root for safety.
+    """
+    if not paths:
+        paths = ["."]
+
+    project_root = ROOT_DIR.resolve()
+    resolved_paths: list[str] = []
+
+    for raw_path in paths:
+        raw_path = str(raw_path).strip()
+
+        if not raw_path:
+            continue
+
+        candidate = Path(raw_path).expanduser()
+
+        if not candidate.is_absolute():
+            candidate = project_root / candidate
+
+        resolved = candidate.resolve()
+
+        if not str(resolved).startswith(str(project_root)):
+            raise ValueError(
+                f"Scan path is outside the project root and was rejected: {raw_path}"
+            )
+
+        if not resolved.exists():
+            raise ValueError(f"Scan path does not exist: {raw_path}")
+
+        resolved_paths.append(str(resolved))
+
+    if not resolved_paths:
+        raise ValueError("No valid scan paths provided.")
+
+    return resolved_paths
 
 def build_finding_from_attack_event(event: dict[str, Any]) -> dict[str, Any]:
     endpoint = event.get("endpoint", "/api/v1/export-users")
@@ -537,88 +637,440 @@ def get_updates(since: str | None = None) -> dict[str, Any]:
         "incidents": [],
         "hasUpdates": False,
     }
-
-
-@app.post("/api/scan")
-async def run_scan(payload: dict[str, Any]) -> dict[str, Any]:
-    global findings_store, incidents_store, bob_analysis_store
-
-    sample_incident = load_sample_incident()
-    sample_findings = load_sample_findings()
-
-    latest_incident: dict[str, Any] | None = None
-
-    if sample_incident:
-        incident_findings = sample_incident.get("findings")
-
-        if isinstance(incident_findings, list) and len(incident_findings) > 0:
-            sample_findings = incident_findings
-
-        # Save incident and findings
-        upsert_incident(sample_incident)
-        upsert_findings(sample_findings)
-
-        latest_incident = sample_incident
-
-    else:
-        # No incident, only findings
-        upsert_findings(sample_findings)
-
-        if incidents_store:
-            latest_incident = incidents_store[-1]
-
-    if latest_incident:
-        # This version supports AI memory:
-        # 1. retrieve related memory
-        # 2. send incident + memory to Bob
-        # 3. save Bob's new ai_memory
-        bob_analysis_store = run_bob_reasoning_for_incident(latest_incident)
-    else:
-        bob_analysis_store = {
-            "attack_type": "IBM Bob analysis unavailable",
-            "target": "No incident available for analysis",
-            "severity": "info",
-            "confidence_assessment": "No incident was available to send to IBM Bob.",
-            "recommended_fixes": [],
-            "generated_security_tests": [],
-            "incident_report": "## No IBM Bob Analysis\n\nNo incident was available.",
-            "ai_memory": {
-                "memory_type": "security_prevention_rule",
-                "incident_pattern": "no_incident_available",
-                "root_cause": "No incident was available for IBM Bob analysis.",
-                "signals_to_watch": [],
-                "prevention_rule": "Run detection before requesting Bob analysis.",
-                "recommended_tests": [],
-                "severity_escalation_conditions": [],
-            },
-            "pr_draft": {
-                "branch_name": "security/no-incident",
-                "pr_title": "No incident available",
-                "pr_description": "No incident was available for IBM Bob analysis.",
-                "files_to_change": [],
-            },
-            "memory_saved": False,
-        }
-
-    await ws_manager.broadcast(
-        {
-            "type": "scan_completed",
-            "findings": findings_store,
-            "incidents": incidents_store,
-            "bob_analysis": bob_analysis_store,
-        }
-    )
+def severity_to_level(severity: str) -> int:
+    severity = str(severity or "medium").lower()
 
     return {
-        "status": "success",
-        "message": "Mock security scan completed",
-        "paths": payload.get("paths", []),
-        "findings_count": len(findings_store),
-        "incidents_count": len(incidents_store),
-        "bob_status": bob_analysis_store.get("attack_type"),
-        "memory_saved": bob_analysis_store.get("memory_saved", False),
-        "saved_memory_id": bob_analysis_store.get("saved_memory_id"),
+        "info": 1,
+        "low": 2,
+        "medium": 3,
+        "high": 4,
+        "critical": 5,
+    }.get(severity, 3)
+
+
+def normalize_scanner_finding(finding: dict[str, Any]) -> dict[str, Any]:
+    """
+    Normalize scanner output so it works with:
+    - frontend Finding type
+    - correlator
+    - Bob prompt
+    """
+    normalized = dict(finding)
+
+    finding_type = (
+        normalized.get("finding_type")
+        or normalized.get("type")
+        or normalized.get("category")
+        or "runtime_anomaly"
+    )
+
+    severity = (
+        normalized.get("severity_hint")
+        or normalized.get("severity")
+        or "medium"
+    )
+
+    file_value = (
+        normalized.get("file")
+        or normalized.get("file_path")
+        or normalized.get("path")
+        or "unknown"
+    )
+
+    normalized["finding_id"] = normalized.get("finding_id") or f"FIND-{uuid4().hex[:8]}"
+    normalized["repo_name"] = normalized.get("repo_name") or "scanned-repository"
+    normalized["finding_type"] = str(finding_type)
+    normalized["type"] = str(finding_type)
+    normalized["category"] = normalized.get("category") or "unknown"
+    normalized["severity_hint"] = str(severity).lower()
+    normalized["severity"] = str(severity).lower()
+    normalized["source"] = normalized.get("source") or "rust_scanner"
+    normalized["file"] = str(file_value)
+    normalized["file_path"] = str(file_value)
+    normalized["line"] = normalized.get("line")
+    normalized["endpoint"] = normalized.get("endpoint")
+    normalized["database_table"] = normalized.get("database_table")
+    normalized["evidence"] = (
+        normalized.get("evidence")
+        or normalized.get("description")
+        or normalized.get("message")
+        or f"{finding_type} detected in {file_value}"
+    )
+    normalized["description"] = normalized.get("description") or normalized["evidence"]
+    normalized["masked_value"] = normalized.get("masked_value")
+    normalized["timestamp"] = normalized.get("timestamp") or utc_now()
+
+    return normalized
+
+
+def build_fallback_incident_from_findings(
+    findings: list[dict[str, Any]],
+    scan_paths: list[str],
+) -> dict[str, Any] | None:
+    """
+    If the correlator does not create an incident, create one from findings.
+    This keeps Incident Analysis and Bob Analysis working for repo scans.
+    """
+    if not findings:
+        return None
+
+    severity_order = {
+        "info": 1,
+        "low": 2,
+        "medium": 3,
+        "high": 4,
+        "critical": 5,
     }
+
+    highest_severity = "medium"
+
+    for finding in findings:
+        severity = str(
+            finding.get("severity_hint")
+            or finding.get("severity")
+            or "medium"
+        ).lower()
+
+        if severity_order.get(severity, 3) > severity_order.get(highest_severity, 3):
+            highest_severity = severity
+
+    affected_repos = sorted({
+        str(finding.get("repo_name"))
+        for finding in findings
+        if finding.get("repo_name")
+    })
+
+    affected_files = sorted({
+        str(finding.get("file"))
+        for finding in findings
+        if finding.get("file")
+    })
+
+    affected_endpoints = sorted({
+        str(finding.get("endpoint"))
+        for finding in findings
+        if finding.get("endpoint")
+    })
+
+    affected_database_tables = sorted({
+        str(finding.get("database_table"))
+        for finding in findings
+        if finding.get("database_table")
+    })
+
+    finding_types = sorted({
+        str(finding.get("finding_type") or finding.get("type") or "unknown")
+        for finding in findings
+    })
+
+    return {
+        "incident_id": f"INC-{uuid4().hex[:8]}",
+        "title": f"Repository scan detected {len(findings)} security finding(s)",
+        "severity": highest_severity,
+        "severity_level": severity_to_level(highest_severity),
+        "confidence_score": 0.75,
+        "confidence_reasons": [
+            "Repository scanner detected one or more security findings.",
+            f"Finding types: {', '.join(finding_types)}",
+            f"Scanned paths: {', '.join(scan_paths)}",
+        ],
+        "confidence_limitations": [
+            "This incident was created from scan findings because the correlator did not produce a grouped incident.",
+        ],
+        "affected_repos": affected_repos,
+        "affected_files": affected_files,
+        "affected_endpoints": affected_endpoints,
+        "affected_database_tables": affected_database_tables,
+        "findings": findings,
+        "attack_path": {
+            "nodes": [
+                {
+                    "id": "repo",
+                    "label": "Scanned Repository",
+                    "type": "infrastructure",
+                },
+                {
+                    "id": "finding",
+                    "label": "Security Finding",
+                    "type": "runtime",
+                },
+                {
+                    "id": "impact",
+                    "label": "Potential Security Impact",
+                    "type": "impact",
+                },
+            ],
+            "edges": [
+                {
+                    "from": "repo",
+                    "to": "finding",
+                    "label": "contains",
+                },
+                {
+                    "from": "finding",
+                    "to": "impact",
+                    "label": "may cause",
+                },
+            ],
+        },
+        "related_memory": [],
+        "timestamp": utc_now(),
+    }
+
+
+def normalize_incident_for_frontend(incident: dict[str, Any]) -> dict[str, Any]:
+    """
+    Normalize incident output so frontend, Bob, and memory all receive
+    the same contract.
+    """
+    normalized = dict(incident)
+
+    findings = normalized.get("findings", [])
+    if not isinstance(findings, list):
+        findings = []
+
+    findings = [
+        normalize_scanner_finding(finding)
+        for finding in findings
+        if isinstance(finding, dict)
+    ]
+
+    severity = normalized.get("severity", "medium")
+
+    if isinstance(severity, dict):
+        severity_level = severity.get("level", 3)
+        severity = (
+            severity.get("level_name")
+            or severity.get("name")
+            or severity.get("label")
+            or "medium"
+        )
+    else:
+        severity_level = normalized.get("severity_level", severity_to_level(str(severity)))
+
+    severity = str(severity).lower()
+
+    affected_repos = sorted({
+        str(finding.get("repo_name"))
+        for finding in findings
+        if finding.get("repo_name")
+    })
+
+    affected_files = sorted({
+        str(finding.get("file"))
+        for finding in findings
+        if finding.get("file")
+    })
+
+    affected_endpoints = sorted({
+        str(finding.get("endpoint"))
+        for finding in findings
+        if finding.get("endpoint")
+    })
+
+    affected_database_tables = sorted({
+        str(finding.get("database_table"))
+        for finding in findings
+        if finding.get("database_table")
+    })
+
+    return {
+        "incident_id": normalized.get("incident_id") or f"INC-{uuid4().hex[:8]}",
+        "title": normalized.get("title") or "Repository security incident detected",
+        "severity": severity,
+        "severity_level": int(severity_level),
+        "confidence_score": normalized.get("confidence_score", 0.5),
+        "confidence_reasons": normalized.get(
+            "confidence_reasons",
+            ["Repository scan produced correlated security evidence."],
+        ),
+        "confidence_limitations": normalized.get("confidence_limitations", []),
+        "affected_repos": normalized.get("affected_repos") or affected_repos,
+        "affected_files": normalized.get("affected_files") or affected_files,
+        "affected_endpoints": normalized.get("affected_endpoints") or affected_endpoints,
+        "affected_database_tables": (
+            normalized.get("affected_database_tables")
+            or affected_database_tables
+        ),
+        "findings": findings,
+        "attack_path": normalized.get("attack_path") or {"nodes": [], "edges": []},
+        "related_memory": normalized.get("related_memory") or [],
+        "timestamp": normalized.get("timestamp") or utc_now(),
+    }
+
+def run_repo_scan_pipeline(
+    paths: list[str],
+    use_mock: bool = False,
+    use_bob: bool = True,
+) -> dict[str, Any]:
+    global bob_analysis_store
+
+    resolved_paths = resolve_scan_paths(paths)
+
+    findings_store.clear()
+    incidents_store.clear()
+    updates_store.clear()
+    bob_analysis_store = None
+
+    raw_findings = rust_scanner.scan(resolved_paths, use_mock=use_mock)
+
+    if not isinstance(raw_findings, list):
+        raw_findings = []
+
+    findings = [
+        normalize_scanner_finding(finding)
+        for finding in raw_findings
+        if isinstance(finding, dict)
+    ]
+
+    upsert_findings(findings)
+
+    raw_incidents = correlator.correlate(findings)
+
+    if not isinstance(raw_incidents, list):
+        raw_incidents = []
+
+    incidents: list[dict[str, Any]] = []
+
+    for raw_incident in raw_incidents:
+        if not isinstance(raw_incident, dict):
+            continue
+
+        incident = normalize_incident_for_frontend(raw_incident)
+
+        try:
+            severity_info = classifier.classify(incident)
+            incident["severity"] = str(
+                severity_info.get("level_name", incident.get("severity", "medium"))
+            ).lower()
+            incident["severity_level"] = int(
+                severity_info.get("level", incident.get("severity_level", 3))
+            )
+        except Exception:
+            incident["severity"] = str(incident.get("severity", "medium")).lower()
+            incident["severity_level"] = int(incident.get("severity_level", 3))
+
+        try:
+            confidence_info = confidence_scorer.calculate_confidence(incident)
+            incident["confidence_score"] = confidence_info.get(
+                "confidence_score",
+                incident.get("confidence_score", 0.5),
+            )
+            incident["confidence_reasons"] = confidence_info.get(
+                "confidence_reasons",
+                incident.get("confidence_reasons", []),
+            )
+            incident["confidence_limitations"] = confidence_info.get(
+                "confidence_limitations",
+                incident.get("confidence_limitations", []),
+            )
+        except Exception:
+            incident.setdefault("confidence_score", 0.5)
+            incident.setdefault(
+                "confidence_reasons",
+                ["Scanner produced correlated evidence."],
+            )
+            incident.setdefault("confidence_limitations", [])
+
+        try:
+            incident["attack_path"] = attack_path_builder.build_attack_path(incident)
+        except Exception:
+            incident["attack_path"] = {
+                "nodes": [],
+                "edges": [],
+            }
+
+        attach_related_memory(incident)
+        upsert_incident(incident)
+        incidents.append(incident)
+
+    # Important fallback:
+    # If scanner found findings but correlator created no incidents,
+    # still create one incident so Bob and Incident Analysis can work.
+    if not incidents and findings:
+        fallback_incident = build_fallback_incident_from_findings(
+            findings=findings,
+            scan_paths=resolved_paths,
+        )
+
+        if fallback_incident:
+            attach_related_memory(fallback_incident)
+            upsert_incident(fallback_incident)
+            incidents.append(fallback_incident)
+
+    analysis = None
+
+    if use_bob and incidents:
+        analysis = run_bob_reasoning_for_incident(incidents[0])
+        bob_analysis_store = analysis
+
+    return {
+        "run_id": f"SCAN-{uuid4().hex[:8]}",
+        "resolved_paths": resolved_paths,
+        "findings": findings,
+        "incidents": incidents,
+        "bob_analysis": analysis,
+    }
+@app.post("/api/scan")
+async def run_scan(payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        paths = payload.get("paths", ["."])
+        use_mock = bool(payload.get("use_mock", False))
+        use_bob = bool(payload.get("use_bob", True))
+
+        result = await asyncio.to_thread(
+            run_repo_scan_pipeline,
+            paths,
+            use_mock,
+            use_bob,
+        )
+
+        await ws_manager.broadcast(
+            {
+                "type": "scan_completed",
+                "findings": findings_store,
+                "incidents": incidents_store,
+                "new_findings": result["findings"],
+                "new_incidents": result["incidents"],
+                "bob_analysis": result["bob_analysis"],
+            }
+        )
+
+        return {
+            "status": "success",
+            "message": "Repository scan completed",
+            "run_id": result["run_id"],
+            "paths": payload.get("paths", ["."]),
+            "resolved_paths": result["resolved_paths"],
+            "new_findings": result["findings"],
+            "new_incidents": result["incidents"],
+            "bob_analysis": result["bob_analysis"],
+            "total_findings": len(findings_store),
+            "total_incidents": len(incidents_store),
+            "memory_saved": (
+                result["bob_analysis"].get("memory_saved", False)
+                if isinstance(result["bob_analysis"], dict)
+                else False
+            ),
+            "saved_memory_id": (
+                result["bob_analysis"].get("saved_memory_id")
+                if isinstance(result["bob_analysis"], dict)
+                else None
+            ),
+        }
+
+    except Exception as error:
+        return {
+            "status": "error",
+            "message": str(error),
+            "paths": payload.get("paths", []),
+            "new_findings": [],
+            "new_incidents": [],
+            "bob_analysis": None,
+            "total_findings": len(findings_store),
+            "total_incidents": len(incidents_store),
+        }
 
 @app.post("/api/simulate-attack")
 async def simulate_attack() -> dict[str, Any]:
