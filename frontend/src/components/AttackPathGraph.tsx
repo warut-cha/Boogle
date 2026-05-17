@@ -16,15 +16,16 @@ interface AttackPathGraphProps {
   attackPath: AttackPath;
 }
 
+// Modern neon color scheme for attack paths
 const getNodeColor = (type: AttackPathNodeType): string => {
   switch (type) {
-    case 'secret': return '#f85149';
-    case 'api': return '#ff7b72';
-    case 'runtime': return '#d29922';
+    case 'secret': return '#ff0040';
+    case 'api': return '#ff6b35';
+    case 'runtime': return '#ffd700';
     case 'database': return '#a371f7';
-    case 'infrastructure': return '#58a6ff';
-    case 'impact': return '#f85149';
-    default: return '#8b949e';
+    case 'infrastructure': return '#00bfff';
+    case 'impact': return '#ff0040';
+    default: return '#6c757d';
   }
 };
 
@@ -41,7 +42,7 @@ const getNodeIcon = (type: AttackPathNodeType): string => {
 };
 
 export default function AttackPathGraph({ attackPath }: AttackPathGraphProps) {
-  // Convert attack path to ReactFlow format
+  // Convert attack path to ReactFlow format with modern styling
   const initialNodes: Node[] = useMemo(() => {
     return attackPath.nodes.map((node, index) => ({
       id: node.id,
@@ -68,9 +69,11 @@ export default function AttackPathGraph({ attackPath }: AttackPathGraphProps) {
               {node.label}
             </div>
             <div style={{
-              fontSize: '0.75rem',
-              color: '#8b949e',
-              textTransform: 'uppercase'
+              fontSize: '0.7rem',
+              color: getNodeColor(node.type),
+              textTransform: 'uppercase',
+              fontWeight: 600,
+              letterSpacing: '0.5px',
             }}>
               {node.type}
             </div>
@@ -78,12 +81,14 @@ export default function AttackPathGraph({ attackPath }: AttackPathGraphProps) {
         ),
       },
       style: {
-        background: '#161b22',
+        background: 'rgba(15, 20, 35, 0.9)',
+        backdropFilter: 'blur(10px)',
         border: `2px solid ${getNodeColor(node.type)}`,
         borderRadius: '12px',
         padding: '1rem',
         width: 200,
         color: '#e6edf3',
+        boxShadow: `0 4px 20px ${getNodeColor(node.type)}40, 0 0 40px ${getNodeColor(node.type)}20`,
       },
     }));
   }, [attackPath.nodes]);
@@ -96,19 +101,24 @@ export default function AttackPathGraph({ attackPath }: AttackPathGraphProps) {
       label: edge.label,
       type: 'smoothstep',
       animated: true,
-      style: { stroke: '#58a6ff', strokeWidth: 2 },
+      style: { 
+        stroke: '#ff0040', 
+        strokeWidth: 3,
+        filter: 'drop-shadow(0 0 8px #ff004080)',
+      },
       labelStyle: {
         fill: '#e6edf3',
         fontSize: '0.75rem',
         fontWeight: 600,
       },
       labelBgStyle: {
-        fill: '#161b22',
-        fillOpacity: 0.9,
+        fill: 'rgba(15, 20, 35, 0.95)',
+        fillOpacity: 1,
+        rx: 4,
       },
       markerEnd: {
         type: MarkerType.ArrowClosed,
-        color: '#58a6ff',
+        color: '#ff0040',
       },
     }));
   }, [attackPath.edges]);
@@ -119,9 +129,10 @@ export default function AttackPathGraph({ attackPath }: AttackPathGraphProps) {
   if (attackPath.nodes.length === 0) {
     return (
       <div style={{
-        backgroundColor: '#161b22',
-        border: '1px solid #30363d',
-        borderRadius: '8px',
+        background: 'rgba(15, 20, 35, 0.7)',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(0, 255, 255, 0.1)',
+        borderRadius: '12px',
         padding: '2rem',
         textAlign: 'center',
         color: '#8b949e'
@@ -133,16 +144,28 @@ export default function AttackPathGraph({ attackPath }: AttackPathGraphProps) {
 
   return (
     <div style={{
-      backgroundColor: '#161b22',
-      border: '1px solid #30363d',
-      borderRadius: '8px',
-      overflow: 'hidden'
+      background: 'rgba(15, 20, 35, 0.7)',
+      backdropFilter: 'blur(10px)',
+      border: '1px solid rgba(0, 255, 255, 0.1)',
+      borderRadius: '12px',
+      overflow: 'hidden',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
     }}>
       <div style={{
         padding: '1rem 1.5rem',
-        borderBottom: '1px solid #30363d'
+        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+        background: 'rgba(0, 0, 0, 0.2)',
       }}>
-        <h2 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#e6edf3', margin: 0 }}>
+        <h2 style={{ 
+          fontSize: '1.125rem', 
+          fontWeight: 600, 
+          color: '#e6edf3', 
+          margin: 0,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+        }}>
+          <span style={{ color: '#ff0040' }}>🎯</span>
           Attack Path Visualization
         </h2>
         <p style={{ fontSize: '0.875rem', color: '#8b949e', margin: '0.5rem 0 0 0' }}>
@@ -150,7 +173,10 @@ export default function AttackPathGraph({ attackPath }: AttackPathGraphProps) {
         </p>
       </div>
       
-      <div style={{ height: '600px', backgroundColor: '#0d1117' }}>
+      <div style={{ 
+        height: '600px', 
+        background: 'linear-gradient(135deg, rgba(10, 14, 39, 0.8) 0%, rgba(26, 31, 58, 0.8) 100%)',
+      }}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -159,16 +185,32 @@ export default function AttackPathGraph({ attackPath }: AttackPathGraphProps) {
           fitView
           attributionPosition="bottom-left"
         >
-          <Background color="#30363d" gap={16} />
-          <Controls style={{ backgroundColor: '#161b22', color: '#e6edf3', border: '1px solid #30363d' } as any} />
+          <Background 
+            color="rgba(0, 255, 255, 0.1)" 
+            gap={20} 
+            style={{ 
+              background: 'transparent',
+            }}
+          />
+          <Controls 
+            style={{ 
+              background: 'rgba(15, 20, 35, 0.9)',
+              backdropFilter: 'blur(10px)',
+              color: '#e6edf3', 
+              border: '1px solid rgba(0, 255, 255, 0.2)',
+              borderRadius: '8px',
+            } as any} 
+          />
           <MiniMap
             style={{
-              backgroundColor: '#161b22',
-              border: '1px solid #30363d',
+              background: 'rgba(15, 20, 35, 0.9)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(0, 255, 255, 0.2)',
+              borderRadius: '8px',
             }}
             nodeColor={(node) => {
               const pathNode = attackPath.nodes.find(n => n.id === node.id);
-              return pathNode ? getNodeColor(pathNode.type) : '#8b949e';
+              return pathNode ? getNodeColor(pathNode.type) : '#6c757d';
             }}
           />
         </ReactFlow>
@@ -176,8 +218,8 @@ export default function AttackPathGraph({ attackPath }: AttackPathGraphProps) {
 
       <div style={{
         padding: '1rem 1.5rem',
-        borderTop: '1px solid #30363d',
-        backgroundColor: '#0d1117'
+        borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+        background: 'rgba(0, 0, 0, 0.2)',
       }}>
         <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -185,7 +227,8 @@ export default function AttackPathGraph({ attackPath }: AttackPathGraphProps) {
               width: '12px',
               height: '12px',
               borderRadius: '50%',
-              backgroundColor: getNodeColor('secret')
+              backgroundColor: getNodeColor('secret'),
+              boxShadow: `0 0 10px ${getNodeColor('secret')}80`,
             }} />
             <span style={{ fontSize: '0.75rem', color: '#8b949e' }}>Secret Exposure</span>
           </div>
@@ -194,7 +237,8 @@ export default function AttackPathGraph({ attackPath }: AttackPathGraphProps) {
               width: '12px',
               height: '12px',
               borderRadius: '50%',
-              backgroundColor: getNodeColor('api')
+              backgroundColor: getNodeColor('api'),
+              boxShadow: `0 0 10px ${getNodeColor('api')}80`,
             }} />
             <span style={{ fontSize: '0.75rem', color: '#8b949e' }}>API Vulnerability</span>
           </div>
@@ -203,7 +247,8 @@ export default function AttackPathGraph({ attackPath }: AttackPathGraphProps) {
               width: '12px',
               height: '12px',
               borderRadius: '50%',
-              backgroundColor: getNodeColor('runtime')
+              backgroundColor: getNodeColor('runtime'),
+              boxShadow: `0 0 10px ${getNodeColor('runtime')}80`,
             }} />
             <span style={{ fontSize: '0.75rem', color: '#8b949e' }}>Runtime Anomaly</span>
           </div>
@@ -212,7 +257,8 @@ export default function AttackPathGraph({ attackPath }: AttackPathGraphProps) {
               width: '12px',
               height: '12px',
               borderRadius: '50%',
-              backgroundColor: getNodeColor('database')
+              backgroundColor: getNodeColor('database'),
+              boxShadow: `0 0 10px ${getNodeColor('database')}80`,
             }} />
             <span style={{ fontSize: '0.75rem', color: '#8b949e' }}>Database Activity</span>
           </div>
@@ -221,7 +267,8 @@ export default function AttackPathGraph({ attackPath }: AttackPathGraphProps) {
               width: '12px',
               height: '12px',
               borderRadius: '50%',
-              backgroundColor: getNodeColor('impact')
+              backgroundColor: getNodeColor('impact'),
+              boxShadow: `0 0 10px ${getNodeColor('impact')}80`,
             }} />
             <span style={{ fontSize: '0.75rem', color: '#8b949e' }}>Security Impact</span>
           </div>

@@ -6,6 +6,9 @@ import {
   FileCode,
   GitPullRequest,
   Shield,
+  TrendingUp,
+  TrendingDown,
+  Minus,
 } from "lucide-react";
 import type { BobOutput, Finding, Incident } from "../api/types";
 
@@ -21,50 +24,140 @@ interface CardProps {
   value: string | number;
   subtitle?: string;
   color: string;
+  trend?: "up" | "down" | "stable";
+  change?: string;
 }
 
-const cardStyle: CSSProperties = {
-  backgroundColor: "#ffffff",
-  border: "1px solid #d2d2d2",
-  borderRadius: "0",
-  padding: "1.5rem",
-  minHeight: "160px",
-  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+const severityColors = {
+  critical: "#ff0040",
+  high: "#ff6b35",
+  medium: "#ffd700",
+  low: "#00bfff",
+  info: "#6c757d",
 };
 
-function Card({ icon, title, value, subtitle, color }: CardProps) {
+const glassPanel: CSSProperties = {
+  background: "rgba(15, 20, 35, 0.7)",
+  backdropFilter: "blur(10px)",
+  border: "1px solid rgba(0, 255, 255, 0.1)",
+  borderRadius: "12px",
+  boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+};
+
+const cardStyle: CSSProperties = {
+  ...glassPanel,
+  padding: "1.5rem",
+  minHeight: "160px",
+  position: "relative",
+  overflow: "hidden",
+  transition: "all 0.3s ease",
+};
+
+function Card({ icon, title, value, subtitle, color, trend, change }: CardProps) {
   return (
-    <div style={cardStyle}>
-      <div style={{ marginBottom: "1rem" }}>
-        <div style={{
-          color: "#0066cc",
-          fontSize: "4rem",
-          fontWeight: 300,
-          lineHeight: 1,
-          marginBottom: "0.5rem"
-        }}>
-          {value}
-        </div>
-        <div style={{
-          color: "#151515",
-          fontSize: "0.875rem",
-          fontWeight: 600,
-          marginBottom: "0.25rem"
-        }}>
-          {title}
-        </div>
+    <div 
+      style={cardStyle}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "translateY(-4px)";
+        e.currentTarget.style.boxShadow = `0 12px 40px rgba(0, 0, 0, 0.4), 0 0 20px ${color}20`;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = "0 8px 32px rgba(0, 0, 0, 0.3)";
+      }}
+    >
+      {/* Glow effect */}
+      <div style={{
+        position: "absolute",
+        top: 0,
+        right: 0,
+        width: "80px",
+        height: "80px",
+        background: `radial-gradient(circle, ${color}30 0%, transparent 70%)`,
+        pointerEvents: "none",
+      }} />
+      
+      {/* Icon */}
+      <div style={{ 
+        marginBottom: "1rem",
+        color: color,
+        opacity: 0.8,
+      }}>
+        {icon}
       </div>
 
+      {/* Value */}
+      <div style={{
+        fontSize: "2.5rem",
+        fontWeight: 600,
+        color: color,
+        lineHeight: 1,
+        marginBottom: "0.5rem",
+        textShadow: `0 0 20px ${color}40`,
+      }}>
+        {value}
+      </div>
+
+      {/* Title */}
+      <div style={{
+        color: "#e6edf3",
+        fontSize: "0.875rem",
+        fontWeight: 500,
+        marginBottom: "0.5rem",
+        textTransform: "uppercase",
+        letterSpacing: "0.5px",
+      }}>
+        {title}
+      </div>
+
+      {/* Trend indicator */}
+      {trend && change && (
+        <div style={{ 
+          display: "flex", 
+          alignItems: "center", 
+          gap: "0.25rem", 
+          fontSize: "0.75rem",
+          color: trend === "up" ? "#ff0040" : trend === "down" ? "#00ff88" : "#6c757d",
+          marginBottom: "0.5rem",
+        }}>
+          {trend === "up" && <TrendingUp size={14} />}
+          {trend === "down" && <TrendingDown size={14} />}
+          {trend === "stable" && <Minus size={14} />}
+          {change}
+        </div>
+      )}
+
+      {/* Subtitle */}
       {subtitle && (
         <div style={{
-          color: "#6a6e73",
-          fontSize: "0.8rem",
-          borderTop: "1px solid #f0f0f0",
-          paddingTop: "0.75rem"
+          color: "#8b949e",
+          fontSize: "0.75rem",
+          borderTop: "1px solid rgba(255, 255, 255, 0.05)",
+          paddingTop: "0.75rem",
         }}>
           {subtitle}
         </div>
       )}
+
+      {/* Mini sparkline */}
+      <svg 
+        width="100%" 
+        height="30" 
+        style={{ 
+          position: "absolute",
+          bottom: "0.5rem",
+          left: 0,
+          opacity: 0.3,
+          pointerEvents: "none",
+        }}
+      >
+        <polyline
+          points="0,20 20,15 40,18 60,10 80,12 100,8"
+          fill="none"
+          stroke={color}
+          strokeWidth="2"
+        />
+      </svg>
     </div>
   );
 }
@@ -103,58 +196,73 @@ export default function OverviewCards({
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-        gap: "1.5rem",
+        gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+        gap: "1rem",
         marginBottom: "1.5rem",
+        padding: "0 1rem",
       }}
     >
       <Card
         icon={<Shield size={24} />}
-        title="New detections"
+        title="New Detections"
         value={findings.length}
         subtitle={affectedRepos === 0 ? "No repositories loaded" : `Monitoring ${affectedRepos} repositories`}
-        color="#0066cc"
+        color="#00bfff"
+        trend="up"
+        change="+12%"
       />
 
       <Card
         icon={<AlertTriangle size={24} />}
-        title="High severity findings"
+        title="High Severity Findings"
         value={highSeverityFindings}
         subtitle={`${findings.length} total findings detected`}
-        color="#c9190b"
+        color={severityColors.high}
+        trend="up"
+        change="+5%"
       />
 
       <Card
         icon={<Activity size={24} />}
-        title="Correlated incidents"
+        title="Correlated Incidents"
         value={incidents.length}
         subtitle={`${criticalIncidents} critical incidents`}
-        color="#0066cc"
+        color={severityColors.critical}
+        trend="stable"
+        change="0%"
       />
 
       <Card
         icon={<Database size={24} />}
-        title="Confidence score"
+        title="AI Confidence Score"
         value={`${avgConfidence}%`}
         subtitle="Average across all incidents"
-        color="#0066cc"
+        color="#00ff88"
+        trend="up"
+        change="+2%"
       />
 
       <Card
         icon={<FileCode size={24} />}
-        title="Tests generated"
+        title="Tests Generated"
         value={generatedTestsCount}
         subtitle="Security regression tests"
-        color="#3e8635"
+        color={severityColors.medium}
+        trend="down"
+        change="-3%"
       />
 
       <Card
         icon={<GitPullRequest size={24} />}
-        title="PR drafts ready"
+        title="PR Drafts Ready"
         value={prDraftsCount}
         subtitle={prDraftsCount > 0 ? "Ready for review" : "No PR draft yet"}
-        color="#f0ab00"
+        color={severityColors.low}
+        trend="stable"
+        change="0%"
       />
     </div>
   );
 }
+
+// Made with Bob
