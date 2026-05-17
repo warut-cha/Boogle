@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import ReactFlow, {
   Node,
   Edge,
@@ -113,8 +113,8 @@ export default function AttackPathGraph({ attackPath }: AttackPathGraphProps) {
     }));
   }, [attackPath.edges]);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, , onNodesChange] = useNodesState(initialNodes);
+  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
 
   if (attackPath.nodes.length === 0) {
     return (
@@ -160,7 +160,7 @@ export default function AttackPathGraph({ attackPath }: AttackPathGraphProps) {
           attributionPosition="bottom-left"
         >
           <Background color="#30363d" gap={16} />
-          <Controls style={{ button: { backgroundColor: '#161b22', color: '#e6edf3', border: '1px solid #30363d' } }} />
+          <Controls style={{ backgroundColor: '#161b22', color: '#e6edf3', border: '1px solid #30363d' } as any} />
           <MiniMap
             style={{
               backgroundColor: '#161b22',

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script for Bob Sentinel pipeline
+Test script for Jeff pipeline
 Tests the complete flow from findings to incidents with attack paths
 """
 
@@ -20,7 +20,7 @@ from correlators.attack_path_builder import AttackPathBuilder
 def test_pipeline():
     """Test the complete pipeline"""
     print("=" * 80)
-    print("Bob Sentinel Pipeline Test")
+    print("Jeff Pipeline Test")
     print("=" * 80)
     
     # Step 1: Get mock findings

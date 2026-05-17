@@ -156,5 +156,23 @@
       }
     ]
   },
+  "related_memory": [
+    {
+      "memory_type": "incident_pattern",
+      "incident_pattern": "hardcoded_secret_in_abandoned_api",
+      "root_cause": "Legacy API with static credentials remained accessible without proper deprecation",
+      "signals_to_watch": [
+        "Hardcoded credentials in legacy code",
+        "Deprecated endpoints still accessible",
+        "Repeated requests to old API versions"
+      ],
+      "prevention_rule": "Flag abandoned APIs with static credentials. Implement API versioning with sunset policies.",
+      "recommended_tests": [
+        "Deprecated endpoints return 410 Gone",
+        "Export endpoints require admin authentication",
+        "Secrets loaded from environment variables"
+      ]
+    }
+  ],
   "timestamp": "2026-05-16T12:10:00Z"
 }

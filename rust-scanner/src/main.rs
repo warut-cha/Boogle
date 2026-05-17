@@ -18,7 +18,7 @@ use models::Finding;
 
 #[derive(Parser)]
 #[command(name = "bob-scanner")]
-#[command(about = "Bob Sentinel Security Scanner", long_about = None)]
+#[command(about = "Jeff Security Scanner", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,

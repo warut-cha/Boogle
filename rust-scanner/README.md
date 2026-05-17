@@ -1,6 +1,6 @@
-# Bob Sentinel Rust Scanner
+# Jeff Rust Scanner
 
-A high-performance security scanner written in Rust for the Bob Sentinel DevSecOps platform.
+A high-performance security scanner written in Rust for the Jeff DevSecOps platform.
 
 ## Features
 
@@ -206,9 +206,9 @@ cargo clippy
 cargo fmt
 ```
 
-## Integration with Bob Sentinel
+## Integration with Jeff
 
-The scanner is the first stage in the Bob Sentinel pipeline:
+The scanner is the first stage in the Jeff pipeline:
 
 1. **Rust Scanner** → Finds security issues
 2. **Python Backend** → Correlates findings into incidents
@@ -217,4 +217,4 @@ The scanner is the first stage in the Bob Sentinel pipeline:
 
 ## License
 
-Part of the Bob Sentinel project.
+Part of the Jeff project.

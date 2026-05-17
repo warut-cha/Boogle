@@ -1,128 +1,160 @@
-import { Shield, AlertTriangle, Activity, FileCode, Database, GitPullRequest } from 'lucide-react';
-import type { Incident, Finding } from '../api/types';
+import type { ReactNode, CSSProperties } from "react";
+import {
+  Activity,
+  AlertTriangle,
+  Database,
+  FileCode,
+  GitPullRequest,
+  Shield,
+} from "lucide-react";
+import type { BobOutput, Finding, Incident } from "../api/types";
 
 interface OverviewCardsProps {
   incidents: Incident[];
   findings: Finding[];
-  bobAnalysisGenerated: boolean;
+  bobOutput: BobOutput | null;
 }
 
 interface CardProps {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   value: string | number;
   subtitle?: string;
   color: string;
 }
 
-const Card = ({ icon, title, value, subtitle, color }: CardProps) => (
-  <div style={{
-    backgroundColor: '#161b22',
-    border: '1px solid #30363d',
-    borderRadius: '8px',
-    padding: '1.5rem',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.75rem'
-  }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-      <div style={{ color }}>
-        {icon}
+const cardStyle: CSSProperties = {
+  backgroundColor: "#ffffff",
+  border: "1px solid #d2d2d2",
+  borderRadius: "0",
+  padding: "1.5rem",
+  minHeight: "160px",
+  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+};
+
+function Card({ icon, title, value, subtitle, color }: CardProps) {
+  return (
+    <div style={cardStyle}>
+      <div style={{ marginBottom: "1rem" }}>
+        <div style={{
+          color: "#0066cc",
+          fontSize: "4rem",
+          fontWeight: 300,
+          lineHeight: 1,
+          marginBottom: "0.5rem"
+        }}>
+          {value}
+        </div>
+        <div style={{
+          color: "#151515",
+          fontSize: "0.875rem",
+          fontWeight: 600,
+          marginBottom: "0.25rem"
+        }}>
+          {title}
+        </div>
       </div>
-      <span style={{ fontSize: '0.875rem', color: '#8b949e', fontWeight: 500 }}>
-        {title}
-      </span>
-    </div>
-    <div>
-      <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#e6edf3' }}>
-        {value}
-      </div>
+
       {subtitle && (
-        <div style={{ fontSize: '0.75rem', color: '#8b949e', marginTop: '0.25rem' }}>
+        <div style={{
+          color: "#6a6e73",
+          fontSize: "0.8rem",
+          borderTop: "1px solid #f0f0f0",
+          paddingTop: "0.75rem"
+        }}>
           {subtitle}
         </div>
       )}
     </div>
-  </div>
-);
+  );
+}
 
-export default function OverviewCards({ incidents, findings, bobAnalysisGenerated }: OverviewCardsProps) {
-  const criticalIncidents = incidents.filter(i => i.severity === 'critical').length;
-  
-  // Count findings by severity
-  const criticalFindings = findings.filter(f => f.severity_hint === 'critical').length;
-  const highFindings = findings.filter(f => f.severity_hint === 'high').length;
-  const mediumFindings = findings.filter(f => f.severity_hint === 'medium').length;
-  
-  // Build severity breakdown string
-  const severityBreakdown = [
-    criticalFindings > 0 ? `${criticalFindings} critical` : null,
-    highFindings > 0 ? `${highFindings} high` : null,
-    mediumFindings > 0 ? `${mediumFindings} medium` : null
-  ].filter(Boolean).join(' · ') || 'No high-severity findings';
-  
-  const avgConfidence = incidents.length > 0
-    ? Math.round(incidents.reduce((sum, i) => sum + i.confidence_score, 0) / incidents.length * 100)
-    : 0;
+export default function OverviewCards({
+  incidents,
+  findings,
+  bobOutput,
+}: OverviewCardsProps) {
+  const criticalIncidents = incidents.filter(
+    (incident) => incident.severity === "critical"
+  ).length;
 
-  // Count Bob analyses - if bobAnalysisGenerated is true, we have 1 analysis
-  const bobAnalysesCount = bobAnalysisGenerated ? 1 : 0;
+  const highSeverityFindings = findings.filter(
+    (finding) =>
+      finding.severity_hint === "high" || finding.severity_hint === "critical"
+  ).length;
 
-  const affectedRepos = new Set(incidents.flatMap(i => i.affected_repos || [])).size;
+  const avgConfidence =
+    incidents.length > 0
+      ? Math.round(
+          (incidents.reduce((sum, incident) => sum + incident.confidence_score, 0) /
+            incidents.length) *
+            100
+        )
+      : 0;
 
-  const aiMemories = incidents.reduce((sum, i) => sum + (i.related_memory?.length || 0), 0);
+  const affectedRepos = new Set(
+    incidents.flatMap((incident) => incident.affected_repos ?? [])
+  ).size;
+
+  const generatedTestsCount = bobOutput?.generated_security_tests?.length ?? 0;
+  const prDraftsCount = bobOutput?.pr_draft ? 1 : 0;
 
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-      gap: '1rem',
-      marginBottom: '2rem'
-    }}>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+        gap: "1.5rem",
+        marginBottom: "1.5rem",
+      }}
+    >
       <Card
         icon={<Shield size={24} />}
-        title="Repos Scanned"
-        value={affectedRepos || 2}
-        subtitle="Active monitoring"
-        color="#58a6ff"
+        title="New detections"
+        value={findings.length}
+        subtitle={affectedRepos === 0 ? "No repositories loaded" : `Monitoring ${affectedRepos} repositories`}
+        color="#0066cc"
       />
+
       <Card
         icon={<AlertTriangle size={24} />}
-        title="Total Findings"
-        value={findings.length}
-        subtitle={severityBreakdown}
-        color="#f85149"
+        title="High severity findings"
+        value={highSeverityFindings}
+        subtitle={`${findings.length} total findings detected`}
+        color="#c9190b"
       />
+
       <Card
         icon={<Activity size={24} />}
-        title="Correlated Incidents"
+        title="Correlated incidents"
         value={incidents.length}
-        subtitle={`${criticalIncidents} critical`}
-        color="#ff7b72"
+        subtitle={`${criticalIncidents} critical incidents`}
+        color="#0066cc"
       />
+
       <Card
         icon={<Database size={24} />}
-        title="Avg Confidence"
+        title="Confidence score"
         value={`${avgConfidence}%`}
-        subtitle="Average across incidents"
-        color="#a371f7"
+        subtitle="Average across all incidents"
+        color="#0066cc"
       />
+
       <Card
         icon={<FileCode size={24} />}
-        title="Bob Analyses"
-        value={bobAnalysesCount}
-        subtitle="AI-powered analysis"
-        color="#56d364"
+        title="Tests generated"
+        value={generatedTestsCount}
+        subtitle="Security regression tests"
+        color="#3e8635"
       />
+
       <Card
         icon={<GitPullRequest size={24} />}
-        title="AI Memories"
-        value={aiMemories}
-        subtitle="Security patterns learned"
-        color="#d29922"
+        title="PR drafts ready"
+        value={prDraftsCount}
+        subtitle={prDraftsCount > 0 ? "Ready for review" : "No PR draft yet"}
+        color="#f0ab00"
       />
     </div>
   );
 }
-
-// Made with Bob
