@@ -393,14 +393,6 @@ The system generates structured memory for future prevention:
 - **Git**: Version control
 - **pytest**: Python testing (optional)
 
-## 📚 Documentation
-
-- [Architecture](ARCHITECTURE.md) - System architecture and design
-- [Implementation Plan](IMPLEMENTATION_PLAN.md) - Detailed implementation guide
-- [API Documentation](docs/API.md) - API reference
-- [Usage Guide](docs/USAGE.md) - Comprehensive usage examples
-- [Examples](docs/EXAMPLES.md) - Real-world scenarios
-
 ## 🔒 Security Considerations
 
 1. **Sensitive Data Handling**: Never log actual secrets found during analysis
