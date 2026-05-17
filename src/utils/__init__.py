@@ -1,3 +1,3 @@
-"""Utility functions for the Jeff system"""
+"""Utility functions for the Boogle system"""
 
 # Made with Bob

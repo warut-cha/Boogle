@@ -1,6 +1,6 @@
-# Jeff Rust Scanner
+# Boogle Rust Scanner
 
-A high-performance security scanner written in Rust for the Jeff DevSecOps platform.
+A high-performance security scanner written in Rust for the Boogle DevSecOps platform.
 
 ## Features
 
@@ -206,9 +206,9 @@ cargo clippy
 cargo fmt
 ```
 
-## Integration with Jeff
+## Integration with Boogle
 
-The scanner is the first stage in the Jeff pipeline:
+The scanner is the first stage in the Boogle pipeline:
 
 1. **Rust Scanner** → Finds security issues
 2. **Python Backend** → Correlates findings into incidents
@@ -217,4 +217,4 @@ The scanner is the first stage in the Jeff pipeline:
 
 ## License
 
-Part of the Jeff project.
+Part of the Boogle project.

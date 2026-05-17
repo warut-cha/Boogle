@@ -50,7 +50,7 @@ def main() -> None:
     parser.add_argument(
         "--backend-url",
         default="http://localhost:3000",
-        help="Jeff backend URL",
+        help="Boogle backend URL",
     )
 
     parser.add_argument(

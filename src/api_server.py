@@ -46,7 +46,7 @@ bob_analysis_store: dict[str, Any] | None = None
 bob_analyses_store: list[dict[str, Any]] = []
 updates_store: list[dict[str, Any]] = []
 
-app = FastAPI(title="JeffAPI")
+app = FastAPI(title="BoogleAPI")
 bob_client = BobClient()
 ai_memory_store = AIMemoryStore()
 def load_config() -> dict[str, Any]:

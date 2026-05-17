@@ -78,7 +78,7 @@ def analyze(path, use_bob, use_ibm_watson, use_mock, output, format, severity_th
         use_bob = True
     
     console.print(Panel.fit(
-        "[bold cyan]🔍 Jeff Security Analysis Started[/bold cyan]",
+        "[bold cyan]🔍 Boogle Security Analysis Started[/bold cyan]",
         border_style="cyan"
     ))
     
