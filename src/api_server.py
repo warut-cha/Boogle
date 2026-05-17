@@ -88,8 +88,10 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:5173",
+        "http://localhost:8080",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:5173",
+        "http://127.0.0.1:8080",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -99,8 +101,10 @@ app.add_middleware(
 ALLOWED_WS_ORIGINS = {
     "http://localhost:3000",
     "http://localhost:5173",
+    "http://localhost:8080",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:5173",
+    "http://127.0.0.1:8080",
 }
 
 
@@ -112,8 +116,12 @@ class WebSocketManager:
         origin = websocket.headers.get("origin")
 
         if origin is not None and origin not in ALLOWED_WS_ORIGINS:
-            await websocket.close(code=1008)
-            return False
+            # Allow any localhost/127.0.0.1 origin for local development
+            from urllib.parse import urlparse
+            parsed = urlparse(origin)
+            if parsed.hostname not in ("localhost", "127.0.0.1"):
+                await websocket.close(code=1008)
+                return False
 
         await websocket.accept()
         self.active_connections.append(websocket)

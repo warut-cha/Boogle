@@ -1,0 +1,122 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Tactical Monospace — security operations console
+ * Near-black surfaces, monospaced data, severity color as the only accent.
+ */
+
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-border-dim: var(--border-dim);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-critical: var(--severity-critical);
+  --color-high: var(--severity-high);
+  --color-medium: var(--severity-medium);
+  --color-low: var(--severity-low);
+  --color-info: var(--severity-info);
+  --color-success: var(--severity-success);
+}
+
+:root {
+  --radius: 0.375rem;
+
+  /* Tactical Monospace dark palette */
+  --background: oklch(0.145 0.005 285);
+  --foreground: oklch(0.92 0.005 285);
+  --surface: oklch(0.18 0.006 285);
+  --surface-raised: oklch(0.215 0.007 285);
+
+  --card: oklch(0.18 0.006 285);
+  --card-foreground: oklch(0.92 0.005 285);
+  --popover: oklch(0.18 0.006 285);
+  --popover-foreground: oklch(0.92 0.005 285);
+
+  --primary: oklch(0.92 0.005 285);
+  --primary-foreground: oklch(0.145 0.005 285);
+  --secondary: oklch(0.25 0.008 285);
+  --secondary-foreground: oklch(0.92 0.005 285);
+  --muted: oklch(0.25 0.008 285);
+  --muted-foreground: oklch(0.62 0.01 285);
+
+  --accent: oklch(0.72 0.14 210);  /* cyan accent */
+  --accent-foreground: oklch(0.145 0.005 285);
+
+  --border: oklch(0.28 0.008 285);
+  --border-dim: oklch(0.235 0.007 285);
+  --input: oklch(0.25 0.008 285);
+  --ring: oklch(0.72 0.14 210);
+
+  --destructive: oklch(0.65 0.22 18);
+  --destructive-foreground: oklch(0.98 0.005 285);
+
+  /* Severity scale */
+  --severity-critical: oklch(0.65 0.22 18);   /* rose-red */
+  --severity-high: oklch(0.74 0.16 60);       /* amber */
+  --severity-medium: oklch(0.78 0.13 95);     /* yellow */
+  --severity-low: oklch(0.62 0.01 285);       /* muted */
+  --severity-info: oklch(0.62 0.18 250);      /* blue */
+  --severity-success: oklch(0.7 0.16 145);    /* green */
+}
+
+.dark {
+  --background: oklch(0.145 0.005 285);
+  --foreground: oklch(0.92 0.005 285);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border-dim);
+  }
+
+  html, body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--color-accent) 30%, transparent);
+  }
+}
+
+@keyframes incident-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-incident-fade {
+  animation: incident-fade 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
