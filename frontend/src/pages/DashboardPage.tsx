@@ -4,6 +4,7 @@ import { Bell, Wifi, WifiOff } from "lucide-react";
 import { apiClient } from "../api/client";
 import type { BobOutput, Finding, Incident } from "../api/types";
 import type { BobAnalysisReport } from "../api/client";
+
 import {
   normalizeBobOutput,
   normalizeFinding,

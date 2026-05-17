@@ -61,6 +61,9 @@ export type ScanResponse = {
   bob_analyses: BobAnalysisReport[];
   total_findings?: number;
   total_incidents?: number;
+  findings_count?: number;
+  incidents_count?: number;
+  bob_status?: string;
   memory_saved?: boolean;
   saved_memory_id?: string | null;
 };
@@ -121,36 +124,24 @@ export const apiClient = {
     return normalizeIncident(response.data);
   },
 
-  async getBobAnalysis(incidentId: string): Promise<BobOutput> {
-    try {
-      const response = await axios.get(
-        `${API_BASE_URL}/api/incidents/${incidentId}/bob-analysis`
-      );
+  async getBobAnalyses(): Promise<{
+    count: number;
+    reports: BobAnalysisReport[];
+  }> {
+    const response = await axios.get(`${API_BASE_URL}/api/bob-analyses`);
 
-      const bobOutput = normalizeBobOutput(response.data);
-
-      saveStoredJson(BOB_OUTPUT_STORAGE_KEY, bobOutput);
-
-      return bobOutput;
-    } catch (error) {
-      console.warn(
-        "Failed to load Bob analysis from backend. Falling back to local storage.",
-        error
-      );
-
-      const stored = loadStoredJson<BobOutput | null>(
-        BOB_OUTPUT_STORAGE_KEY,
-        null
-      );
-
-      if (stored) {
-        return normalizeBobOutput(stored);
-      }
-
-      throw error;
-    }
+    return {
+      count: response.data?.count ?? 0,
+      reports: Array.isArray(response.data?.reports)
+        ? response.data.reports.map((item: any) => ({
+            incident_id: String(item.incident_id ?? ""),
+            incident_title: String(item.incident_title ?? "Security incident"),
+            finding_count: Number(item.finding_count ?? 0),
+            analysis: normalizeBobOutput(item.analysis),
+          }))
+        : [],
+    };
   },
-
   async analyzeWithBob(incidentId: string): Promise<BobOutput> {
     const response = await axios.post(
       `${API_BASE_URL}/api/incidents/${incidentId}/analyze-with-bob`
@@ -220,23 +211,27 @@ export const apiClient = {
     return {
       ...response.data,
       paths: Array.isArray(response.data?.paths) ? response.data.paths : paths,
+
       new_findings: Array.isArray(response.data?.new_findings)
         ? response.data.new_findings.map(normalizeFinding)
         : [],
+
       new_incidents: Array.isArray(response.data?.new_incidents)
         ? response.data.new_incidents.map(normalizeIncident)
         : [],
+
       bob_analysis: response.data?.bob_analysis
         ? normalizeBobOutput(response.data.bob_analysis)
         : null,
+
       bob_analyses: Array.isArray(response.data?.bob_analyses)
-      ? response.data.bob_analyses.map((item: any) => ({
-          incident_id: String(item.incident_id ?? ""),
-          incident_title: String(item.incident_title ?? "Security incident"),
-          finding_count: Number(item.finding_count ?? 0),
-          analysis: normalizeBobOutput(item.analysis),
-        }))
-      : [],
+        ? response.data.bob_analyses.map((item: any) => ({
+            incident_id: String(item.incident_id ?? ""),
+            incident_title: String(item.incident_title ?? "Security incident"),
+            finding_count: Number(item.finding_count ?? 0),
+            analysis: normalizeBobOutput(item.analysis),
+          }))
+        : [],
     };
   },
 

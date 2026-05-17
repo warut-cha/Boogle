@@ -1406,7 +1406,7 @@ async def run_scan(payload: dict[str, Any]) -> dict[str, Any]:
             "new_findings": result["findings"],
             "new_incidents": result["incidents"],
             "bob_analysis": result["bob_analysis"],
-            "bob_analyses": result.get("bob_analyses", []),
+           "bob_analyses": result.get("bob_analyses", []),
             "total_findings": len(findings_store),
             "total_incidents": len(incidents_store),
             "memory_saved": (
