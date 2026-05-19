@@ -1,0 +1,138 @@
+2026-05-15 01:00:15 INFO [app] Application started on port 5000
+2026-05-15 01:00:20 INFO [app] Database connection established
+2026-05-15 01:15:32 INFO [api] GET /api/v3/users/1234 - 200 OK
+2026-05-15 01:15:45 INFO [api] GET /api/v3/products - 200 OK
+2026-05-15 01:30:12 INFO [auth] User login: john.doe@example.com - SUCCESS
+2026-05-15 01:30:15 INFO [api] GET /api/v3/users/5678 - 200 OK
+2026-05-15 01:45:00 INFO [api] POST /api/v3/orders - 201 CREATED
+
+# ATTACK SCENARIO 1: The Midnight Heist - Starts here
+2026-05-15 01:45:30 WARNING [security] Unusual access pattern detected from IP 192.168.1.100
+2026-05-15 01:45:35 INFO [api] GET /api/v1/users?id=1 - 200 OK - IP: 192.168.1.100
+2026-05-15 01:45:36 INFO [api] GET /api/v1/users?id=2 - 200 OK - IP: 192.168.1.100
+2026-05-15 01:45:37 INFO [api] GET /api/v1/users?id=3 - 200 OK - IP: 192.168.1.100
+2026-05-15 01:45:38 INFO [api] GET /api/v1/users?id=4 - 200 OK - IP: 192.168.1.100
+2026-05-15 01:45:39 INFO [api] GET /api/v1/users?id=5 - 200 OK - IP: 192.168.1.100
+2026-05-15 01:45:40 WARNING [security] Rapid sequential requests detected from 192.168.1.100
+2026-05-15 01:46:00 INFO [api] GET /api/v3/debug - 200 OK - IP: 192.168.1.100
+2026-05-15 01:46:01 WARNING [security] Debug endpoint accessed from 192.168.1.100
+2026-05-15 01:46:05 INFO [api] Response includes environment variables and config
+2026-05-15 01:50:22 INFO [aws] S3 API call: ListBuckets - IP: 192.168.1.100
+2026-05-15 01:50:23 INFO [aws] S3 API call: GetBucketLocation bucket=customer-data-backup - IP: 192.168.1.100
+2026-05-15 01:50:25 WARNING [aws] Unusual S3 access pattern from IP 192.168.1.100
+2026-05-15 02:10:15 INFO [aws] S3 API call: GetObject bucket=customer-data-backup key=db_backup_2026-05-14.sql.gz size=524288000 - IP: 192.168.1.100
+2026-05-15 02:10:16 WARNING [aws] Large S3 download initiated: 500MB
+2026-05-15 02:15:30 INFO [aws] S3 download completed: 500MB transferred
+2026-05-15 02:20:45 INFO [api] GET /api/v1/users - 200 OK - IP: 192.168.1.100
+2026-05-15 02:20:46 INFO [api] Returned 50000 user records
+2026-05-15 02:20:47 WARNING [security] Large data export detected from deprecated endpoint
+2026-05-15 02:30:12 INFO [api] POST /api/v1/legacy/auth?username=admin&password=admin123 - 200 OK - IP: 192.168.1.100
+2026-05-15 02:30:13 WARNING [auth] Login attempt with credentials in URL parameters
+2026-05-15 02:30:14 INFO [auth] Admin login successful - IP: 192.168.1.100
+2026-05-15 02:30:20 INFO [api] GET /api/v1/admin/users - 200 OK - IP: 192.168.1.100
+2026-05-15 02:30:25 INFO [api] GET /api/v3/export?table=users - 200 OK - IP: 192.168.1.100
+2026-05-15 02:30:26 INFO [api] User exported 50000 records from users
+2026-05-15 02:30:30 INFO [api] GET /api/v3/export?table=payments - 200 OK - IP: 192.168.1.100
+2026-05-15 02:30:31 INFO [api] User exported 25000 records from payments
+2026-05-15 02:30:35 WARNING [security] Multiple large exports in short time window
+2026-05-15 02:35:00 INFO [api] GET /api/v3/logs?file=../../../etc/passwd - 403 FORBIDDEN - IP: 192.168.1.100
+2026-05-15 02:35:01 WARNING [security] Path traversal attempt detected
+2026-05-15 02:35:05 INFO [api] GET /api/v3/logs?file=app.log - 200 OK - IP: 192.168.1.100
+2026-05-15 02:40:00 INFO [database] Query executed: SELECT * FROM users WHERE id = 1 OR 1=1 -- 
+2026-05-15 02:40:01 WARNING [security] SQL injection pattern detected in query
+2026-05-15 02:45:00 INFO [api] Connection closed - IP: 192.168.1.100
+# END ATTACK SCENARIO 1
+
+2026-05-15 03:00:00 INFO [system] Hourly health check - All systems operational
+2026-05-15 03:15:22 INFO [api] GET /api/v3/products - 200 OK
+2026-05-15 03:30:45 INFO [auth] User login: jane.smith@example.com - SUCCESS
+
+# ATTACK SCENARIO 2: Legacy Backdoor - Starts here
+2026-05-15 10:00:00 INFO [api] GET /api/v1/users - 200 OK - IP: 203.0.113.50
+2026-05-15 10:00:05 INFO [api] GET /api/v2/users - 404 NOT FOUND - IP: 203.0.113.50
+2026-05-15 10:00:10 INFO [api] GET /api/v1/search?q=admin - 200 OK - IP: 203.0.113.50
+2026-05-15 10:00:15 WARNING [security] Deprecated API endpoint accessed: /api/v1/search
+2026-05-15 10:15:30 INFO [api] GET /api/v1/users?id=1 - 200 OK - IP: 203.0.113.50
+2026-05-15 10:15:35 INFO [api] Response includes password hash and sensitive data
+2026-05-15 10:30:00 INFO [api] POST /api/v1/admin/users - 200 OK - IP: 203.0.113.50
+2026-05-15 10:30:01 WARNING [security] Admin endpoint accessed without authentication
+2026-05-15 10:30:05 INFO [database] User role updated: user_id=5678 new_role=admin
+2026-05-15 10:30:10 WARNING [security] Privilege escalation detected
+2026-05-15 10:45:00 INFO [auth] User login: compromised.user@example.com - SUCCESS
+2026-05-15 10:45:05 INFO [auth] User role: admin (recently elevated)
+2026-05-15 11:00:00 INFO [api] GET /api/v3/users/1234 - 200 OK - IP: 203.0.113.50
+2026-05-15 11:00:05 INFO [api] GET /api/v3/users/5678 - 200 OK - IP: 203.0.113.50
+2026-05-15 11:00:10 INFO [api] GET /api/v3/users/9012 - 200 OK - IP: 203.0.113.50
+2026-05-15 11:15:00 INFO [api] GET /api/v3/export?table=customers - 200 OK - IP: 203.0.113.50
+2026-05-15 11:15:01 INFO [api] User exported 30000 records from customers
+2026-05-15 11:30:00 WARNING [security] Suspicious activity from recently elevated admin account
+# END ATTACK SCENARIO 2
+
+2026-05-15 12:00:00 INFO [system] Hourly health check - All systems operational
+2026-05-15 12:15:30 INFO [api] GET /api/v3/products - 200 OK
+2026-05-15 12:30:45 INFO [auth] User login: bob.wilson@example.com - SUCCESS
+
+# ATTACK SCENARIO 3: SQL Injection to Data Breach - Starts here
+2026-05-15 14:00:00 INFO [api] GET /api/v3/products - 200 OK - IP: 198.51.100.75
+2026-05-15 14:00:15 INFO [api] POST /api/v3/search - 200 OK - IP: 198.51.100.75
+2026-05-15 14:00:30 INFO [api] GET /api/v1/search?q=test - 200 OK - IP: 198.51.100.75
+2026-05-15 14:00:45 INFO [api] GET /api/v1/search?q=test' OR '1'='1 - 200 OK - IP: 198.51.100.75
+2026-05-15 14:00:46 WARNING [security] SQL injection pattern detected in search query
+2026-05-15 14:00:50 INFO [database] Query executed: SELECT * FROM users WHERE name LIKE '%test' OR '1'='1%'
+2026-05-15 14:00:51 WARNING [database] Query returned all records (50000 rows)
+2026-05-15 14:01:00 INFO [api] GET /api/v1/search?q=' UNION SELECT username,password,email FROM admin_users-- - 200 OK - IP: 198.51.100.75
+2026-05-15 14:01:01 ERROR [database] SQL injection attempt: UNION SELECT detected
+2026-05-15 14:01:05 INFO [database] Query executed with UNION - returned admin credentials
+2026-05-15 14:01:10 WARNING [security] Database credentials exposed in query results
+2026-05-15 14:05:00 INFO [database] Direct database connection from IP: 198.51.100.75
+2026-05-15 14:05:01 WARNING [security] Unusual direct database connection detected
+2026-05-15 14:05:05 INFO [database] Query: SELECT * FROM payments WHERE amount > 1000
+2026-05-15 14:05:10 INFO [database] Query returned 100000 payment records
+2026-05-15 14:05:15 WARNING [security] Large payment data query from external IP
+2026-05-15 14:10:00 INFO [database] Query: SELECT card_number, cvv, expiry FROM payment_methods
+2026-05-15 14:10:01 ERROR [security] CRITICAL: Payment card data accessed directly
+2026-05-15 14:10:05 INFO [database] Query returned 50000 payment card records
+2026-05-15 14:15:00 INFO [database] Connection closed from IP: 198.51.100.75
+2026-05-15 14:15:05 WARNING [security] Suspicious database session: 100000+ records accessed
+# END ATTACK SCENARIO 3
+
+2026-05-15 14:30:00 INFO [system] Hourly health check - All systems operational
+2026-05-15 14:45:22 INFO [api] GET /api/v3/products - 200 OK
+2026-05-15 15:00:00 INFO [auth] User login: alice.johnson@example.com - SUCCESS
+
+# Additional suspicious patterns
+2026-05-15 15:15:00 INFO [api] POST /api/v3/upload - 200 OK - IP: 192.0.2.100
+2026-05-15 15:15:01 WARNING [security] File uploaded without authentication: malicious.php
+2026-05-15 15:15:05 ERROR [security] Executable file upload detected
+2026-05-15 15:30:00 INFO [api] POST /api/v3/execute - 200 OK - IP: 192.0.2.100
+2026-05-15 15:30:01 ERROR [security] Command execution endpoint accessed
+2026-05-15 15:30:02 INFO [system] Command executed: cat /etc/passwd
+2026-05-15 15:30:03 WARNING [security] System file access via command injection
+2026-05-15 15:45:00 INFO [api] POST /api/v2/payments - 200 OK
+2026-05-15 15:45:01 INFO [payment] Processing payment: {'amount': 99.99, 'card_number': '4532-1234-5678-9012', 'cvv': '123'}
+2026-05-15 15:45:02 ERROR [security] Payment card data logged in plaintext
+2026-05-15 16:00:00 INFO [api] GET /api/v3/backup - 200 OK - IP: 203.0.113.25
+2026-05-15 16:00:01 WARNING [security] Backup endpoint accessed
+2026-05-15 16:00:05 INFO [system] Database backup created: backup_2026-05-15.sql
+2026-05-15 16:15:00 INFO [auth] Failed login attempt: admin / wrongpassword - IP: 198.51.100.200
+2026-05-15 16:15:01 INFO [auth] Failed login attempt: admin / password123 - IP: 198.51.100.200
+2026-05-15 16:15:02 INFO [auth] Failed login attempt: admin / admin - IP: 198.51.100.200
+2026-05-15 16:15:03 INFO [auth] Failed login attempt: admin / admin123 - IP: 198.51.100.200
+2026-05-15 16:15:04 INFO [auth] Login successful: admin / admin123 - IP: 198.51.100.200
+2026-05-15 16:15:05 WARNING [security] Brute force attack detected: 4 failed attempts before success
+2026-05-15 16:30:00 INFO [api] GET /api/v2/users/password-reset - 200 OK
+2026-05-15 16:30:01 INFO [api] Password reset token generated: reset_1234_12345
+2026-05-15 16:30:02 WARNING [security] Predictable password reset token exposed
+2026-05-15 16:45:00 INFO [system] Hourly health check - All systems operational
+2026-05-15 17:00:00 INFO [api] GET /api/v3/users - 200 OK
+2026-05-15 17:15:00 INFO [database] Slow query detected: 5.2 seconds
+2026-05-15 17:15:01 WARNING [performance] Query performance degradation
+2026-05-15 17:30:00 INFO [system] Memory usage: 85% - WARNING threshold
+2026-05-15 17:45:00 INFO [api] GET /api/v1/legacy/auth?username=test&password=test123 - 401 UNAUTHORIZED
+2026-05-15 17:45:01 INFO [auth] Login attempt: test:test123
+2026-05-15 17:45:02 WARNING [security] Credentials logged in plaintext
+2026-05-15 18:00:00 INFO [system] Hourly health check - All systems operational
+2026-05-15 18:15:00 INFO [api] GET /api/v3/products - 200 OK
+2026-05-15 18:30:00 INFO [auth] User logout: john.doe@example.com
+2026-05-15 18:45:00 INFO [system] Daily backup initiated
+2026-05-15 19:00:00 INFO [system] Backup completed successfully

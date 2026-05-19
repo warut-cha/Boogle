@@ -73,6 +73,12 @@ Learns from incidents to prevent future occurrences:
 # Python 3.9 or higher
 python --version
 
+# Node.js 18 or higher (for dashboard)
+node --version
+
+# Rust 1.70+ (for high-performance scanner)
+rustc --version
+
 # MongoDB (optional, SQLite fallback available)
 mongod --version
 ```
@@ -81,45 +87,46 @@ mongod --version
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd security-analyst
+cd IBM-BOB
 
-# Install dependencies
+# Install Python dependencies
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# Configure the system
-cp config/config.yaml.example config/config.yaml
-# Edit config.yaml with your settings
+# Build Rust scanner (high-performance)
+cd rust-scanner
+cargo build --release
+cd ..
+
+# Install frontend dependencies
+cd frontend
+npm install
+cd ..
 ```
 
-### Basic Usage
+### Running the Full System (Dashboard + API)
+
 ```bash
-# Run full security analysis
-python src/main.py analyze --path ./mock_data/repos
+# Terminal 1 - Backend API
+source venv/bin/activate
+python src/api_server.py
 
-# Analyze specific repository
-python src/main.py analyze --path ./mock_data/repos/ecommerce_app
+# Terminal 2 - Frontend Dashboard
+cd frontend
+npm run dev
 
-# Generate incident report
-python src/main.py report --incident-id INC-2026-001
-
-# View AI memory
-python src/main.py memory --list
-
-# Run security tests
-python src/main.py test --path ./mock_data/repos
-
-# Export findings as JSON
-python src/main.py export --format json --output findings.json
+# Terminal 3 - Attack Simulator (For real time attack)
+python runtime_lab/attack_simulator.py --backend-url http://localhost:8000 --endpoint /api/v1/export-users --count 5 --delay 1
 ```
+### Start the program
+http://localhost:8080/
 
 ### With IBM Watson Integration
 ```bash
 # Set IBM Watson credentials
 export IBM_WATSON_API_KEY="your-api-key"
 export IBM_WATSON_URL="your-watson-url"
-
-# Run analysis with Watson
-python src/main.py analyze --path ./mock_data/repos --use-ibm-watson
 ```
 
 ## 📊 Example Output
@@ -204,25 +211,36 @@ python src/main.py test-scenario --scenario-id SCENARIO-001
 
 ```
 security-analyst/
-├── src/                    # Source code
+├── src/                    # Python backend
 │   ├── collectors/         # Data collection modules
 │   ├── analyzers/          # Analysis engines
 │   ├── correlators/        # Incident correlation
 │   ├── classifiers/        # Severity classification
 │   ├── remediators/        # Fix generation
-│   ├── ai_engine/          # AI reasoning components
+│   ├── ai_engine/          # AI reasoning (IBM watsonx.ai)
 │   ├── reporters/          # Report generation
-│   └── database/           # Database operations
+│   ├── database/           # Database operations
+│   ├── api_server.py       # FastAPI backend server
+│   └── main.py             # CLI entry point
+├── frontend/               # React + TanStack Start dashboard
+│   ├── src/
+│   │   ├── routes/         # TanStack Router pages
+│   │   ├── components/     # React components (shadcn/ui)
+│   │   └── hooks/          # Custom React hooks
+│   ├── package.json        # Node.js dependencies
+│   └── vite.config.ts      # Vite configuration
+├── rust-scanner/           # High-performance Rust scanner
+│   ├── src/                # Rust source code
+│   └── Cargo.toml          # Rust dependencies
 ├── mock_data/              # Test data and scenarios
 │   ├── repos/              # Mock vulnerable repositories
-│   ├── logs/               # Sample log files
 │   └── scenarios/          # Attack scenario definitions
-├── patterns/               # Detection patterns
-├── templates/              # Report templates
-├── models/                 # ML models
-├── tests/                  # Test suite
-├── docs/                   # Documentation
-└── config/                 # Configuration files
+├── mock-repos/             # Additional test repositories
+├── patterns/               # Detection patterns (JSON)
+├── contracts/              # JSON schemas for data contracts
+├── config/                 # YAML configuration files
+├── generated_reports/      # Output directory for reports
+└── runtime_lab/            # Attack simulation tools
 ```
 
 ## 🔧 Configuration
@@ -231,19 +249,20 @@ security-analyst/
 ```yaml
 database:
   type: mongodb  # or sqlite
-  host: localhost
-  port: 27017
-  name: security_analyst
+  mongodb:
+    host: localhost
+    port: 27017
+    database: security_analyst
 
 analysis:
   static_analysis:
     enabled: true
-    scan_patterns: ["*.py", "*.js", "*.java", "*.env"]
+    scan_patterns: ["*.py", "*.js", "*.java", "*.go", "*.rb", "*.php", "*.yaml", "*.json", "*.env"]
   
   runtime_analysis:
     enabled: true
     anomaly_threshold: 0.85
-    time_window_minutes: 60
+    detection_window_minutes: 60
   
   correlation:
     enabled: true
@@ -253,15 +272,25 @@ analysis:
 ai_engine:
   local_models:
     enabled: true
-    model_path: "./models"
+    anomaly_detection:
+      algorithm: isolation_forest
   
-  ibm_watson:
-    enabled: false
-    api_key: "${IBM_WATSON_API_KEY}"
-    url: "${IBM_WATSON_URL}"
+  bob:  # IBM watsonx.ai integration
+    enabled: true
+    model_id: "ibm/granite-8b-code-instruct"
+    project_id: "${WATSONX_PROJECT_ID}"
+    api_key: "${WATSONX_API_KEY}"
+    url: "${WATSONX_URL}"
+    max_tokens: 2000
+    temperature: 0.7
+  
+  vector_memory:
+    enabled: true
+    storage_path: ./models/vector_memory
+    embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
 
 reporting:
-  output_format: "markdown"  # or html, json
+  formats: ["markdown", "json", "html"]
   include_code_snippets: true
   max_snippet_lines: 20
 ```
@@ -302,13 +331,36 @@ The system generates structured memory for future prevention:
 }
 ```
 
-## 📚 Documentation
+## 🛠️ Tech Stack
 
-- [Architecture](ARCHITECTURE.md) - System architecture and design
-- [Implementation Plan](IMPLEMENTATION_PLAN.md) - Detailed implementation guide
-- [API Documentation](docs/API.md) - API reference
-- [Usage Guide](docs/USAGE.md) - Comprehensive usage examples
-- [Examples](docs/EXAMPLES.md) - Real-world scenarios
+### Backend
+- **Python 3.9+**: Core application logic
+- **FastAPI**: REST API server with WebSocket support
+- **IBM watsonx.ai**: AI-powered security reasoning (Granite models)
+- **ChromaDB**: Vector database for AI memory
+- **MongoDB/SQLite**: Incident and findings storage
+- **scikit-learn**: Machine learning for anomaly detection
+
+### Frontend
+- **React 19**: UI framework
+- **TanStack Start**: Full-stack React framework with SSR
+- **TanStack Router**: Type-safe routing
+- **Vite**: Build tool and dev server
+- **shadcn/ui**: Component library (Radix UI + Tailwind CSS)
+- **Recharts**: Data visualization
+- **WebSocket**: Real-time incident updates
+
+### Scanner
+- **Rust**: High-performance static code scanner
+- **Regex**: Pattern matching for secrets and vulnerabilities
+- **Walkdir**: Efficient file system traversal
+- **Serde**: JSON serialization
+
+### DevOps & Tools
+- **YAML**: Configuration management
+- **JSON Schema**: Data contract validation
+- **Git**: Version control
+- **pytest**: Python testing (optional)
 
 ## 🔒 Security Considerations
 
@@ -320,23 +372,30 @@ The system generates structured memory for future prevention:
 
 ## 🛣️ Roadmap
 
-### Phase 1 (Current)
+### Phase 1 (Completed ✅)
 - [x] Core analysis engines
 - [x] Incident correlation
 - [x] CLI interface
 - [x] Mock data and scenarios
+- [x] Rust-based high-performance scanner
+- [x] IBM watsonx.ai integration (Bob AI)
+- [x] Web dashboard with real-time updates
+- [x] WebSocket support for live monitoring
+- [x] AI memory system with vector storage
 
-### Phase 2 (Planned)
-- [ ] Web dashboard for visualization
-- [ ] Real-time monitoring with webhooks
+### Phase 2 (In Progress 🚧)
+- [x] Interactive dashboard with TanStack Start
+- [x] Real-time monitoring with WebSocket
 - [ ] CI/CD pipeline integration
 - [ ] Automated remediation with PR generation
+- [ ] Enhanced attack path visualization
 
-### Phase 3 (Future)
-- [ ] Multi-language support (Java, Go, Ruby)
+### Phase 3 (Future 🔮)
+- [ ] Multi-language support expansion
 - [ ] Cloud deployment (AWS, Azure, GCP)
 - [ ] SIEM integration
 - [ ] Compliance reporting (GDPR, SOC2, ISO27001)
+- [ ] Mobile app for incident alerts
 
 ## 🤝 Contributing
 
@@ -348,9 +407,12 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🙏 Acknowledgments
 
-- IBM Watson for AI capabilities
+- **IBM watsonx.ai** for AI-powered security reasoning
+- **IBM Granite models** for code analysis capabilities
 - Security research community for attack patterns
 - Open source security tools (Bandit, Semgrep)
+- **shadcn/ui** for beautiful React components
+- **TanStack** ecosystem for modern React development
 
 ## 📞 Support
 

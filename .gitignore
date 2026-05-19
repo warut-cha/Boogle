@@ -1,0 +1,143 @@
+# -----------------------------
+# Python
+# -----------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# -----------------------------
+# Environment / secrets
+# -----------------------------
+.env
+.env.local
+.env.*.local
+secrets/
+credentials/
+*.pem
+*.key
+*.crt
+
+# -----------------------------
+# Logs
+# -----------------------------
+*.log
+logs/
+
+# Keep mock demo logs
+!mock-repos/**/logs/
+!mock-repos/**/logs/**
+
+# -----------------------------
+# Database / generated data
+# -----------------------------
+*.db
+*.sqlite
+*.sqlite3
+data/
+
+# Keep mock database event files
+!mock-repos/**/database/
+!mock-repos/**/database/**
+
+# -----------------------------
+# Output / generated files
+# -----------------------------
+output/
+reports/
+generated_reports/*
+!generated_reports/.gitkeep
+
+generated_tests/*
+!generated_tests/.gitkeep
+
+# -----------------------------
+# Models
+# -----------------------------
+models/*.json
+models/*.pkl
+!models/.gitkeep
+
+# -----------------------------
+# Rust
+# -----------------------------
+/rust-scanner/target/
+/target/
+/.cargo/
+*.rs.bk
+
+# -----------------------------
+# Frontend / Node / TypeScript
+# -----------------------------
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.turbo/
+frontend/coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+test_incidents/
+
+# -----------------------------
+# IDE / editor
+# -----------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# -----------------------------
+# OS files
+# -----------------------------
+.DS_Store
+Thumbs.db
+
+# -----------------------------
+# Temporary files
+# -----------------------------
+*.tmp
+*.temp
+temp/
+tmp/
+
+
+frontend/node_modules/
+frontend/package-lock.json
+frontend/yarn.lock
+frontend/.wrangler/
+frontend/src/routeTree.gen.ts
+rust-scanner/out.json
+# Made with Bob
